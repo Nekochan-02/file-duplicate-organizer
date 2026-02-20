@@ -1,0 +1,738 @@
+
+> file-duplicate-organizer@0.1.0 tauri
+> tauri dev
+
+     Running BeforeDevCommand (`npm run dev`)
+
+> file-duplicate-organizer@0.1.0 dev
+> vite
+
+
+  [32m[1mVITE[22m v7.3.1[39m  [2mready in [0m[1m505[22m[2m[0m ms[22m
+
+  [32m➜[39m  [1mLocal[22m:   [36mhttp://localhost:[1m1420[22m/[39m
+(!) Failed to run dependency scan. Skipping dependency pre-bundling. Error: The following dependencies are imported but could not be resolved:
+
+  @tauri-apps/plugin-dialog (imported by C:/Users/shian/.gemini/antigravity/AI-Management/file-duplicate-organizer/src/App.tsx)
+
+Are they installed?
+    at file:///C:/Users/shian/.gemini/antigravity/AI-Management/file-duplicate-organizer/node_modules/vite/dist/node/chunks/config.js:31903:33
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async file:///C:/Users/shian/.gemini/antigravity/AI-Management/file-duplicate-organizer/node_modules/vite/dist/node/chunks/config.js:34111:15
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+        Info Watching C:\Users\shian\.gemini\antigravity\AI-Management\file-duplicate-organizer\src-tauri for changes...
+   Compiling cfg-if v1.0.4
+   Compiling windows-link v0.2.1
+   Compiling smallvec v1.15.1
+   Compiling writeable v0.6.2
+   Compiling litemap v0.8.1
+   Compiling itoa v1.0.17
+   Compiling siphasher v1.0.2
+   Compiling memchr v2.8.0
+   Compiling icu_normalizer_data v2.1.1
+   Compiling icu_properties_data v2.1.2
+   Compiling zerofrom v0.1.6
+   Compiling fnv v1.0.7
+    Building [=>                        ] 32/409: windows…
+                                                            
+   Compiling getrandom v0.2.17
+    Building [=>                        ] 33/409: windows…
+                                                            
+   Compiling yoke v0.8.1
+   Compiling zmij v1.0.21
+    Building [=>                        ] 35/409: fnv, sm…
+                                                            
+   Compiling phf_shared v0.11.3
+    Building [=>                        ] 36/409: phf_sha…
+                                                            
+   Compiling byteorder v1.5.0
+   Compiling utf8_iter v1.0.4
+   Compiling rand_core v0.6.4
+    Building [=>                        ] 46/409: phf_sha…
+                                                            
+   Compiling thiserror v2.0.18
+    Building [=>                        ] 47/409: phf_sha…
+                                                            
+   Compiling serde_core v1.0.228
+    Building [==>                       ] 48/409: phf_sha…
+                                                            
+   Compiling getrandom v0.1.16
+   Compiling log v0.4.29
+    Building [==>                       ] 50/409: phf_sha…
+                                                            
+   Compiling zerovec v0.11.5
+    Building [==>                       ] 51/409: phf_sha…
+                                                            
+   Compiling rand_chacha v0.3.1
+    Building [==>                       ] 52/409: phf_sha…
+                                                            
+   Compiling rand_core v0.5.1
+    Building [==>                       ] 55/409: phf_sha…
+                                                            
+   Compiling winnow v0.7.14
+    Building [==>                       ] 57/409: winnow,…
+                                                            
+   Compiling darling_core v0.21.3
+    Building [==>                       ] 61/409: winnow,…
+                                                            
+   Compiling parking_lot_core v0.9.12
+    Building [===>                      ] 64/409: winnow,…
+                                                            
+   Compiling zerotrie v0.2.3
+    Building [===>                      ] 65/409: winnow,…
+                                                            
+   Compiling toml_writer v1.0.6+spec-1.1.0
+   Compiling aho-corasick v1.1.4
+   Compiling typeid v1.0.3
+    Building [===>                      ] 71/409: winnow,…
+                                                            
+   Compiling rand v0.8.5
+    Building [===>                      ] 72/409: winnow,…
+                                                            
+   Compiling rand_chacha v0.2.2
+    Building [===>                      ] 73/409: winnow,…
+                                                            
+   Compiling rand_pcg v0.2.1
+    Building [===>                      ] 74/409: winnow,…
+                                                            
+   Compiling unic-common v0.9.0
+    Building [===>                      ] 76/409: winnow,…
+                                                            
+   Compiling tinystr v0.8.2
+    Building [===>                      ] 77/409: winnow,…
+                                                            
+   Compiling potential_utf v0.1.4
+    Building [===>                      ] 78/409: winnow,…
+                                                            
+   Compiling regex-syntax v0.8.9
+    Building [====>                     ] 80/409: winnow,…
+                                                            
+   Compiling unic-char-range v0.9.0
+    Building [====>                     ] 81/409: winnow,…
+                                                            
+   Compiling unic-ucd-version v0.9.0
+    Building [====>                     ] 85/409: winnow,…
+                                                            
+   Compiling rand v0.7.3
+    Building [====>                     ] 86/409: winnow,…
+                                                            
+   Compiling icu_locale_core v2.1.1
+   Compiling icu_collections v2.1.1
+    Building [====>                     ] 88/409: winnow,…
+                                                            
+   Compiling unic-char-property v0.9.0
+   Compiling alloc-no-stdlib v2.0.4
+    Building [====>                     ] 92/409: winnow,…
+                                                            
+   Compiling dunce v1.0.5
+    Building [=====>                    ] 96/409: winnow,…
+                                                            
+   Compiling phf_generator v0.11.3
+    Building [=====>                    ] 97/409: winnow,…
+                                                            
+   Compiling bytes v1.11.1
+    Building [=====>                   ] 100/409: winnow,…
+                                                            
+   Compiling phf_generator v0.10.0
+    Building [=====>                   ] 103/409: winnow,…
+                                                            
+   Compiling phf_codegen v0.11.3
+    Building [=====>                   ] 104/409: winnow,…
+                                                            
+   Compiling phf_macros v0.11.3
+    Building [=====>                   ] 105/409: winnow,…
+                                                            
+   Compiling string_cache_codegen v0.5.4
+    Building [=====>                   ] 106/409: winnow,…
+                                                            
+   Compiling phf_generator v0.8.0
+    Building [=====>                   ] 107/409: winnow,…
+                                                            
+   Compiling unic-ucd-ident v0.9.0
+    Building [=====>                   ] 108/409: winnow,…
+                                                            
+   Compiling alloc-stdlib v0.2.2
+    Building [=====>                   ] 109/409: winnow,…
+                                                            
+   Compiling lock_api v0.4.14
+    Building [=====>                   ] 110/409: winnow,…
+                                                            
+   Compiling icu_provider v2.1.1
+    Building [=====>                   ] 111/409: winnow,…
+                                                            
+   Compiling toml_parser v1.0.9+spec-1.1.0
+   Compiling thiserror v1.0.69
+    Building [=====>                   ] 114/409: winnow,…
+                                                            
+   Compiling windows-sys v0.61.2
+    Building [======>                  ] 116/409: winnow,…
+                                                            
+   Compiling markup5ever v0.14.1
+    Building [======>                  ] 122/409: winnow,…
+                                                            
+   Compiling phf_macros v0.10.0
+    Building [======>                  ] 123/409: aho-cor…
+                                                            
+   Compiling getrandom v0.4.1
+    Building [======>                  ] 124/409: aho-cor…
+                                                            
+   Compiling icu_normalizer v2.1.1
+    Building [======>                  ] 125/409: aho-cor…
+                                                            
+   Compiling icu_properties v2.1.2
+    Building [======>                  ] 126/409: aho-cor…
+                                                            
+   Compiling parking_lot v0.12.5
+    Building [======>                  ] 127/409: aho-cor…
+                                                            
+   Compiling brotli-decompressor v5.0.0
+    Building [======>                  ] 128/409: aho-cor…
+                                                            
+   Compiling http v1.4.0
+    Building [======>                  ] 129/409: aho-cor…
+                                                            
+   Compiling regex-automata v0.4.14
+    Building [======>                  ] 130/409: aho-cor…
+                                                            
+   Compiling phf_codegen v0.8.0
+    Building [=======>                 ] 131/409: aho-cor…
+                                                            
+   Compiling windows_x86_64_msvc v0.52.6
+   Compiling serde_json v1.0.149
+    Building [=======>                 ] 133/409: aho-cor…
+                                                            
+   Compiling serde_spanned v1.0.4
+    Building [=======>                 ] 135/409: aho-cor…
+                                                            
+   Compiling toml_datetime v0.7.5+spec-1.1.0
+    Building [=======>                 ] 136/409: aho-cor…
+                                                            
+   Compiling form_urlencoded v1.2.2
+    Building [=======>                 ] 145/409: form_ur…
+                                                            
+   Compiling brotli v8.0.2
+    Building [=======>                 ] 147/409: form_ur…
+                                                            
+   Compiling idna_adapter v1.2.1
+    Building [========>                ] 148/409: aho-cor…
+                                                            
+   Compiling idna v1.1.0
+    Building [========>                ] 149/409: aho-cor…
+                                                            
+   Compiling toml v0.9.12+spec-1.1.0
+    Building [========>                ] 150/409: aho-cor…
+                                                            
+   Compiling darling_macro v0.21.3
+    Building [========>                ] 151/409: aho-cor…
+                                                            
+   Compiling selectors v0.24.0
+    Building [========>                ] 152/409: regex-s…
+                                                            
+   Compiling windows-targets v0.52.6
+    Building [========>                ] 153/409: windows…
+                                                            
+   Compiling phf v0.10.1
+    Building [========>                ] 155/409: windows…
+    Building [========>                ] 156/409: markup5…
+                                                            
+   Compiling string_cache v0.8.9
+    Building [========>                ] 157/409: markup5…
+                                                            
+   Compiling darling v0.21.3
+    Building [========>                ] 158/409: markup5…
+                                                            
+   Compiling phf v0.11.3
+    Building [========>                ] 159/409: markup5…
+                                                            
+   Compiling serde_with_macros v3.16.1
+    Building [========>                ] 160/409: markup5…
+                                                            
+   Compiling uuid v1.21.0
+    Building [========>                ] 161/409: markup5…
+                                                            
+   Compiling anyhow v1.0.101
+    Building [========>                ] 162/409: markup5…
+                                                            
+   Compiling glob v0.3.3
+    Building [=========>               ] 165/409: markup5…
+                                                            
+   Compiling stable_deref_trait v1.2.1
+    Building [=========>               ] 167/409: markup5…
+                                                            
+   Compiling cssparser v0.29.6
+    Building [=========>               ] 175/409: csspars…
+    Building [=========>               ] 177/409: csspars…
+                                                            
+   Compiling regex v1.12.3
+   Compiling url v2.5.8
+    Building [=========>               ] 179/409: regex, …
+                                                            
+   Compiling winapi-util v0.1.11
+    Building [==========>              ] 180/409: regex, …
+                                                            
+   Compiling fxhash v0.2.1
+    Building [==========>              ] 183/409: regex, …
+                                                            
+   Compiling cfb v0.7.3
+    Building [==========>              ] 195/409: regex, …
+                                                            
+   Compiling jsonptr v0.6.3
+    Building [==========>              ] 196/409: regex, …
+                                                            
+   Compiling same-file v1.0.6
+    Building [===========>             ] 197/409: regex, …
+                                                            
+   Compiling erased-serde v0.4.9
+    Building [===========>             ] 198/409: regex, …
+    Building [===========>             ] 199/409: regex, …
+                                                            
+   Compiling schemars v0.8.22
+    Building [===========>             ] 203/409: csspars…
+                                                            
+   Compiling cargo_metadata v0.19.2
+    Building [===========>             ] 205/409: selecto…
+                                                            
+   Compiling serde_with v3.16.1
+    Building [===========>             ] 206/409: selecto…
+                                                            
+   Compiling html5ever v0.29.1
+    Building [===========>             ] 207/409: selecto…
+                                                            
+   Compiling serde-untagged v0.1.9
+    Building [===========>             ] 208/409: selecto…
+                                                            
+   Compiling urlpattern v0.3.0
+    Building [===========>             ] 209/409: urlpatt…
+                                                            
+   Compiling infer v0.19.0
+    Building [===========>             ] 210/409: urlpatt…
+                                                            
+   Compiling json-patch v3.0.1
+    Building [===========>             ] 211/409: urlpatt…
+                                                            
+   Compiling walkdir v2.5.0
+    Building [===========>             ] 212/409: urlpatt…
+    Building [============>            ] 213/409: urlpatt…
+                                                            
+   Compiling libc v0.2.182
+    Building [============>            ] 220/409: urlpatt…
+                                                            
+   Compiling windows-link v0.1.3
+    Building [============>            ] 221/409: urlpatt…
+                                                            
+   Compiling serde v1.0.228
+    Building [============>            ] 222/409: urlpatt…
+                                                            
+   Compiling option-ext v0.2.0
+    Building [============>            ] 225/409: urlpatt…
+                                                            
+   Compiling kuchikiki v0.8.8-speedreader
+    Building [============>            ] 226/409: urlpatt…
+    Building [============>            ] 227/409: urlpatt…
+    Building [============>            ] 228/409: urlpatt…
+                                                            
+   Compiling vswhom-sys v0.1.3
+    Building [============>            ] 229/409: urlpatt…
+                                                            
+   Compiling windows-strings v0.4.2
+    Building [=============>           ] 230/409: urlpatt…
+    Building [=============>           ] 231/409: urlpatt…
+                                                            
+   Compiling windows-result v0.3.4
+    Building [=============>           ] 232/409: urlpatt…
+    Building [=============>           ] 233/409: urlpatt…
+                                                            
+   Compiling windows-sys v0.59.0
+    Building [=============>           ] 234/409: urlpatt…
+                                                            
+   Compiling windows-core v0.61.2
+    Building [=============>           ] 238/409: urlpatt…
+                                                            
+   Compiling tauri-utils v2.8.2
+    Building [=============>           ] 239/409: urlpatt…
+                                                            
+   Compiling vswhom v0.1.0
+    Building [=============>           ] 240/409: urlpatt…
+                                                            
+   Compiling dirs-sys v0.5.0
+    Building [=============>           ] 242/409: urlpatt…
+    Building [=============>           ] 243/409: urlpatt…
+                                                            
+   Compiling heck v0.5.0
+    Building [=============>           ] 245/409: windows…
+                                                            
+   Compiling windows-threading v0.1.0
+    Building [==============>          ] 247/409: windows…
+                                                            
+   Compiling dirs v6.0.0
+    Building [==============>          ] 248/409: windows…
+                                                            
+   Compiling cargo_toml v0.22.3
+    Building [==============>          ] 250/409: windows…
+                                                            
+   Compiling typenum v1.19.0
+    Building [==============>          ] 254/409: typenum…
+                                                            
+   Compiling percent-encoding v2.3.2
+    Building [==============>          ] 255/409: typenum…
+                                                            
+   Compiling windows-collections v0.2.0
+    Building [==============>          ] 256/409: typenum…
+                                                            
+   Compiling windows-numerics v0.2.0
+    Building [==============>          ] 257/409: typenum…
+    Building [==============>          ] 258/409: typenum…
+                                                            
+   Compiling windows-future v0.2.1
+    Building [==============>          ] 259/409: typenum…
+                                                            
+   Compiling raw-window-handle v0.6.2
+    Building [==============>          ] 261/409: typenum…
+    Building [===============>         ] 264/409: typenum…
+    Building [===============>         ] 265/409: typenum…
+    Building [===============>         ] 266/409: typenum…
+    Building [===============>         ] 267/409: typenum…
+                                                            
+   Compiling generic-array v0.14.7
+    Building [===============>         ] 268/409: typenum…
+                                                            
+   Compiling windows v0.61.3
+    Building [===============>         ] 269/409: windows…
+                                                            
+   Compiling webview2-com-sys v0.38.2
+    Building [===============>         ] 270/409: webview…
+                                                            
+   Compiling time-core v0.1.8
+    Building [===============>         ] 273/409: webview…
+                                                            
+   Compiling powerfmt v0.2.0
+    Building [===============>         ] 274/409: webview…
+                                                            
+   Compiling num-conv v0.2.0
+    Building [===============>         ] 275/409: webview…
+                                                            
+   Compiling deranged v0.5.6
+    Building [===============>         ] 278/409: webview…
+    Building [================>        ] 279/409: num-con…
+                                                            
+   Compiling crc32fast v1.5.0
+    Building [================>        ] 282/409: crc32fa…
+                                                            
+   Compiling dpi v0.1.2
+    Building [================>        ] 283/409: crc32fa…
+                                                            
+   Compiling time-macros v0.2.27
+    Building [================>        ] 284/409: crc32fa…
+    Building [================>        ] 286/409: uuid, d…
+                                                            
+   Compiling scopeguard v1.2.0
+    Building [================>        ] 287/409: uuid, d…
+    Building [================>        ] 288/409: uuid, d…
+                                                            
+   Compiling flate2 v1.1.9
+    Building [================>        ] 290/409: uuid, f…
+    Building [================>        ] 291/409: uuid, f…
+    Building [================>        ] 292/409: flate2,…
+    Building [================>        ] 293/409: jsonptr…
+    Building [================>        ] 294/409: jsonptr…
+                                                            
+   Compiling windows_x86_64_msvc v0.53.1
+    Building [=================>       ] 295/409: jsonptr…
+    Building [=================>       ] 296/409: jsonptr…
+                                                            
+   Compiling block-buffer v0.10.4
+    Building [=================>       ] 297/409: jsonptr…
+    Building [=================>       ] 298/409: jsonptr…
+                                                            
+   Compiling crypto-common v0.1.7
+    Building [=================>       ] 299/409: jsonptr…
+                                                            
+   Compiling time v0.3.47
+    Building [=================>       ] 300/409: jsonptr…
+                                                            
+   Compiling crossbeam-utils v0.8.21
+   Compiling bitflags v2.11.0
+    Building [=================>       ] 303/409: jsonptr…
+    Building [=================>       ] 304/409: url, id…
+    Building [=================>       ] 305/409: url, id…
+    Building [=================>       ] 306/409: url, id…
+    Building [=================>       ] 307/409: url, cr…
+                                                            
+   Compiling winreg v0.55.0
+    Building [=================>       ] 308/409: winreg,…
+                                                            
+   Compiling windows-version v0.1.7
+    Building [=================>       ] 309/409: winreg,…
+                                                            
+   Compiling pin-project-lite v0.2.16
+    Building [==================>      ] 311/409: winreg,…
+                                                            
+   Compiling unicode-segmentation v1.12.0
+    Building [==================>      ] 312/409: winreg,…
+                                                            
+   Compiling once_cell v1.21.3
+    Building [==================>      ] 313/409: winreg,…
+    Building [==================>      ] 314/409: winreg,…
+                                                            
+   Compiling embed-resource v3.0.6
+    Building [==================>      ] 315/409: winreg,…
+    Building [==================>      ] 316/409: winreg,…
+    Building [==================>      ] 317/409: winreg,…
+                                                            
+   Compiling crossbeam-channel v0.5.15
+    Building [==================>      ] 318/409: winreg,…
+                                                            
+   Compiling tauri-winres v0.3.5
+    Building [==================>      ] 319/409: winreg,…
+                                                            
+   Compiling png v0.17.16
+    Building [==================>      ] 320/409: tauri-w…
+    Building [==================>      ] 321/409: tauri-w…
+                                                            
+   Compiling digest v0.10.7
+    Building [==================>      ] 322/409: tauri-w…
+    Building [==================>      ] 323/409: tauri-w…
+    Building [==================>      ] 324/409: tauri-w…
+    Building [==================>      ] 325/409: tauri-w…
+                                                            
+   Compiling windows-targets v0.53.5
+    Building [==================>      ] 326/409: tauri-w…
+    Building [==================>      ] 327/409: lock_ap…
+                                                            
+   Compiling cookie v0.18.1
+    Building [===================>     ] 328/409: lock_ap…
+    Building [===================>     ] 329/409: lock_ap…
+                                                            
+   Compiling semver v1.0.27
+    Building [===================>     ] 330/409: lock_ap…
+                                                            
+   Compiling tracing-core v0.1.36
+    Building [===================>     ] 333/409: serde_w…
+                                                            
+   Compiling cpufeatures v0.2.17
+    Building [===================>     ] 334/409: serde_w…
+                                                            
+   Compiling sha2 v0.10.9
+    Building [===================>     ] 335/409: serde_w…
+                                                            
+   Compiling ico v0.5.0
+    Building [===================>     ] 336/409: ico, se…
+                                                            
+   Compiling tracing v0.1.44
+    Building [===================>     ] 337/409: ico, se…
+    Building [===================>     ] 340/409: ico, se…
+                                                            
+   Compiling windows-sys v0.60.2
+    Building [===================>     ] 341/409: ico, se…
+                                                            
+   Compiling base64 v0.22.1
+    Building [===================>     ] 343/409: ico, se…
+                                                            
+   Compiling lazy_static v1.5.0
+   Compiling softbuffer v0.4.8
+    Building [====================>    ] 348/409: ico, se…
+                                                            
+   Compiling keyboard-types v0.7.0
+    Building [====================>    ] 349/409: ico, se…
+    Building [====================>    ] 350/409: ico, se…
+    Building [====================>    ] 351/409: ico, se…
+                                                            
+   Compiling serialize-to-javascript v0.1.2
+    Building [====================>    ] 354/409: serde_w…
+                                                            
+   Compiling getrandom v0.3.4
+    Building [====================>    ] 355/409: serde_w…
+                                                            
+   Compiling tokio v1.49.0
+    Building [====================>    ] 356/409: tokio, …
+                                                            
+   Compiling mime v0.3.17
+    Building [====================>    ] 358/409: tokio, …
+                                                            
+   Compiling windows-result v0.1.2
+    Building [====================>    ] 359/409: tokio, …
+                                                            
+   Compiling open v5.3.3
+    Building [=====================>   ] 364/409: tokio, …
+                                                            
+   Compiling windows-core v0.56.0
+    Building [=====================>   ] 365/409: tokio, …
+    Building [=====================>   ] 366/409: tokio, …
+    Building [=====================>   ] 367/409: tokio, …
+    Building [=====================>   ] 368/409: tokio, …
+    Building [=====================>   ] 369/409: tokio, …
+    Building [=====================>   ] 370/409: tokio, …
+                                                            
+   Compiling window-vibrancy v0.6.0
+    Building [=====================>   ] 370/409: tokio, …
+    Building [=====================>   ] 371/409: tokio, …
+    Building [=====================>   ] 372/409: tokio, …
+    Building [=====================>   ] 373/409: tokio, …
+                                                            
+   Compiling windows v0.56.0
+    Building [=====================>   ] 373/409: tokio, …
+    Building [=====================>   ] 374/409: tokio, …
+                                                            
+   Compiling tauri-build v2.5.5
+   Compiling tauri-plugin v2.5.3
+   Compiling tauri-codegen v2.5.4
+    Building [=====================>   ] 374/409: tokio, …
+    Building [=====================>   ] 375/409: tokio, …
+                                                            
+   Compiling muda v0.17.1
+    Building [=====================>   ] 376/409: tokio, …
+                                                            
+   Compiling rfd v0.16.0
+    Building [=====================>   ] 376/409: tokio, …
+    Building [======================>  ] 377/409: tokio, …
+    Building [======================>  ] 378/409: tokio, …
+                                                            
+   Compiling tauri v2.10.2
+   Compiling tauri-plugin-fs v2.4.5
+   Compiling tauri-macros v2.5.4
+    Building [======================>  ] 379/409: tokio, …
+                                                            
+   Compiling tauri-plugin-dialog v2.6.0
+    Building [======================>  ] 380/409: tokio, …
+                                                            
+   Compiling tauri-plugin-opener v2.5.3
+    Building [======================>  ] 380/409: tokio, …
+                                                            
+   Compiling file-duplicate-organizer v0.1.0 (C:\Users\shian\.gemini\antigravity\AI-Management\file-duplicate-organizer\src-tauri)
+    Building [======================>  ] 380/409: tokio, …
+    Building [======================>  ] 381/409: windows…
+    Building [======================>  ] 382/409: windows…
+    Building [======================>  ] 383/409: windows…
+    Building [======================>  ] 384/409: windows…
+    Building [======================>  ] 385/409: windows…
+    Building [======================>  ] 386/409: windows…
+    Building [======================>  ] 387/409: windows…
+    Building [======================>  ] 388/409: windows…
+    Building [======================>  ] 389/409: windows…
+    Building [======================>  ] 390/409: windows…
+    Building [======================>  ] 391/409: windows…
+    Building [======================>  ] 392/409: windows…
+    Building [=======================> ] 393/409: windows…
+    Building [=======================> ] 394/409: windows…
+                                                            
+   Compiling trash v5.2.5
+    Building [=======================> ] 394/409: windows…
+    Building [=======================> ] 395/409: windows…
+    Building [=======================> ] 396/409: windows 
+                                                            
+   Compiling tao v0.34.5
+    Building [=======================> ] 396/409: webview…
+    Building [=======================> ] 397/409: webview…
+                                                            
+   Compiling webview2-com v0.38.2
+    Building [=======================> ] 397/409: webview…
+    Building [=======================> ] 398/409: webview…
+    Building [=======================> ] 399/409: webview…
+                                                            
+   Compiling tauri-runtime v2.10.0
+   Compiling wry v0.54.2
+    Building [=======================> ] 399/409: webview…
+    Building [=======================> ] 400/409: webview…
+                                                            
+   Compiling tauri-runtime-wry v2.10.0
+    Building [=======================> ] 400/409: tauri-r…
+    Building [=======================> ] 401/409: tauri-r…
+    Building [=======================> ] 402/409: tauri-r…
+    Building [=======================> ] 402/409: tauri, …
+    Building [=======================> ] 403/409: tauri   
+    Building [=======================> ] 403/409: tauri, …
+    Building [=======================> ] 404/409: tauri, …
+    Building [=======================> ] 405/409: tauri, …
+    Building [=======================> ] 406/409: tauri-p…
+    Building [=======================> ] 407/409: file-du…
+    Building [=======================> ] 408/409: file-du…
+                                                            
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1m 33s
+     Running `target\debug\file-duplicate-organizer.exe`
+3:29:41 [vite] (client) Pre-transform error: Failed to resolve import "@tauri-apps/plugin-dialog" from "src/App.tsx". Does the file exist?
+  Plugin: vite:import-analysis
+  File: C:/Users/shian/.gemini/antigravity/AI-Management/file-duplicate-organizer/src/App.tsx:3:21
+  18 |  import { useState, useCallback } from "react";
+  19 |  import { invoke } from "@tauri-apps/api/core";
+  20 |  import { open } from "@tauri-apps/plugin-dialog";
+     |                        ^
+  21 |  import "./App.css";
+  22 |  function formatSize(bytes) {
+3:29:41 [vite] Internal server error: Failed to resolve import "@tauri-apps/plugin-dialog" from "src/App.tsx". Does the file exist?
+  Plugin: vite:import-analysis
+  File: C:/Users/shian/.gemini/antigravity/AI-Management/file-duplicate-organizer/src/App.tsx:3:21
+  18 |  import { useState, useCallback } from "react";
+  19 |  import { invoke } from "@tauri-apps/api/core";
+  20 |  import { open } from "@tauri-apps/plugin-dialog";
+     |                        ^
+  21 |  import "./App.css";
+  22 |  function formatSize(bytes) {
+      at TransformPluginContext._formatLog (file:///C:/Users/shian/.gemini/antigravity/AI-Management/file-duplicate-organizer/node_modules/vite/dist/node/chunks/config.js:28999:43)
+      at TransformPluginContext.error (file:///C:/Users/shian/.gemini/antigravity/AI-Management/file-duplicate-organizer/node_modules/vite/dist/node/chunks/config.js:28996:14)
+      at normalizeUrl (file:///C:/Users/shian/.gemini/antigravity/AI-Management/file-duplicate-organizer/node_modules/vite/dist/node/chunks/config.js:27119:18)
+      at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+      at async file:///C:/Users/shian/.gemini/antigravity/AI-Management/file-duplicate-organizer/node_modules/vite/dist/node/chunks/config.js:27177:32
+      at async Promise.all (index 5)
+      at async TransformPluginContext.transform (file:///C:/Users/shian/.gemini/antigravity/AI-Management/file-duplicate-organizer/node_modules/vite/dist/node/chunks/config.js:27145:4)
+      at async EnvironmentPluginContainer.transform (file:///C:/Users/shian/.gemini/antigravity/AI-Management/file-duplicate-organizer/node_modules/vite/dist/node/chunks/config.js:28797:14)
+      at async loadAndTransform (file:///C:/Users/shian/.gemini/antigravity/AI-Management/file-duplicate-organizer/node_modules/vite/dist/node/chunks/config.js:22670:26)
+      at async viteTransformMiddleware (file:///C:/Users/shian/.gemini/antigravity/AI-Management/file-duplicate-organizer/node_modules/vite/dist/node/chunks/config.js:24542:20)
+[2m3:29:41[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32m✨ new dependencies optimized: [33mreact-dom/client, @tauri-apps/api/core[32m[39m
+[2m3:29:41[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32m✨ optimized dependencies changed. reloading[39m
+3:29:41 [vite] (client) Pre-transform error: Failed to resolve import "@tauri-apps/plugin-dialog" from "src/App.tsx". Does the file exist?
+  Plugin: vite:import-analysis
+  File: C:/Users/shian/.gemini/antigravity/AI-Management/file-duplicate-organizer/src/App.tsx:3:21
+  18 |  import { useState, useCallback } from "react";
+  19 |  import { invoke } from "@tauri-apps/api/core";
+  20 |  import { open } from "@tauri-apps/plugin-dialog";
+     |                        ^
+  21 |  import "./App.css";
+  22 |  function formatSize(bytes) {
+3:29:41 [vite] Internal server error: Failed to resolve import "@tauri-apps/plugin-dialog" from "src/App.tsx". Does the file exist?
+  Plugin: vite:import-analysis
+  File: C:/Users/shian/.gemini/antigravity/AI-Management/file-duplicate-organizer/src/App.tsx:3:21
+  18 |  import { useState, useCallback } from "react";
+  19 |  import { invoke } from "@tauri-apps/api/core";
+  20 |  import { open } from "@tauri-apps/plugin-dialog";
+     |                        ^
+  21 |  import "./App.css";
+  22 |  function formatSize(bytes) {
+      at TransformPluginContext._formatLog (file:///C:/Users/shian/.gemini/antigravity/AI-Management/file-duplicate-organizer/node_modules/vite/dist/node/chunks/config.js:28999:43)
+      at TransformPluginContext.error (file:///C:/Users/shian/.gemini/antigravity/AI-Management/file-duplicate-organizer/node_modules/vite/dist/node/chunks/config.js:28996:14)
+      at normalizeUrl (file:///C:/Users/shian/.gemini/antigravity/AI-Management/file-duplicate-organizer/node_modules/vite/dist/node/chunks/config.js:27119:18)
+      at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+      at async file:///C:/Users/shian/.gemini/antigravity/AI-Management/file-duplicate-organizer/node_modules/vite/dist/node/chunks/config.js:27177:32
+      at async Promise.all (index 5)
+      at async TransformPluginContext.transform (file:///C:/Users/shian/.gemini/antigravity/AI-Management/file-duplicate-organizer/node_modules/vite/dist/node/chunks/config.js:27145:4)
+      at async EnvironmentPluginContainer.transform (file:///C:/Users/shian/.gemini/antigravity/AI-Management/file-duplicate-organizer/node_modules/vite/dist/node/chunks/config.js:28797:14)
+      at async loadAndTransform (file:///C:/Users/shian/.gemini/antigravity/AI-Management/file-duplicate-organizer/node_modules/vite/dist/node/chunks/config.js:22670:26)
+      at async viteTransformMiddleware (file:///C:/Users/shian/.gemini/antigravity/AI-Management/file-duplicate-organizer/node_modules/vite/dist/node/chunks/config.js:24542:20)
+[2m3:32:14[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2merror_log.txt[22m
+3:32:14 [vite] (client) Pre-transform error: Failed to resolve import "@tauri-apps/plugin-dialog" from "src/App.tsx". Does the file exist?
+  Plugin: vite:import-analysis
+  File: C:/Users/shian/.gemini/antigravity/AI-Management/file-duplicate-organizer/src/App.tsx:3:21
+  18 |  import { useState, useCallback } from "react";
+  19 |  import { invoke } from "@tauri-apps/api/core";
+  20 |  import { open } from "@tauri-apps/plugin-dialog";
+     |                        ^
+  21 |  import "./App.css";
+  22 |  function formatSize(bytes) {
+3:32:14 [vite] Internal server error: Failed to resolve import "@tauri-apps/plugin-dialog" from "src/App.tsx". Does the file exist?
+  Plugin: vite:import-analysis
+  File: C:/Users/shian/.gemini/antigravity/AI-Management/file-duplicate-organizer/src/App.tsx:3:21
+  18 |  import { useState, useCallback } from "react";
+  19 |  import { invoke } from "@tauri-apps/api/core";
+  20 |  import { open } from "@tauri-apps/plugin-dialog";
+     |                        ^
+  21 |  import "./App.css";
+  22 |  function formatSize(bytes) {
+      at TransformPluginContext._formatLog (file:///C:/Users/shian/.gemini/antigravity/AI-Management/file-duplicate-organizer/node_modules/vite/dist/node/chunks/config.js:28999:43)
+      at TransformPluginContext.error (file:///C:/Users/shian/.gemini/antigravity/AI-Management/file-duplicate-organizer/node_modules/vite/dist/node/chunks/config.js:28996:14)
+      at normalizeUrl (file:///C:/Users/shian/.gemini/antigravity/AI-Management/file-duplicate-organizer/node_modules/vite/dist/node/chunks/config.js:27119:18)
+      at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+      at async file:///C:/Users/shian/.gemini/antigravity/AI-Management/file-duplicate-organizer/node_modules/vite/dist/node/chunks/config.js:27177:32
+      at async Promise.all (index 5)
+      at async TransformPluginContext.transform (file:///C:/Users/shian/.gemini/antigravity/AI-Management/file-duplicate-organizer/node_modules/vite/dist/node/chunks/config.js:27145:4)
+      at async EnvironmentPluginContainer.transform (file:///C:/Users/shian/.gemini/antigravity/AI-Management/file-duplicate-organizer/node_modules/vite/dist/node/chunks/config.js:28797:14)
+      at async loadAndTransform (file:///C:/Users/shian/.gemini/antigravity/AI-Management/file-duplicate-organizer/node_modules/vite/dist/node/chunks/config.js:22670:26)
+      at async viteTransformMiddleware (file:///C:/Users/shian/.gemini/antigravity/AI-Management/file-duplicate-organizer/node_modules/vite/dist/node/chunks/config.js:24542:20)
