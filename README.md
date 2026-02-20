@@ -47,5 +47,5 @@ npm run tauri build
 ```
 
 ## License / ライセンス
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.  
-当プロジェクトは MIT License の下で公開されています。詳細は [LICENSE](LICENSE) ファイルをご確認ください。
+This project is licensed under the PolyForm Noncommercial License 1.0.0 - see the [LICENSE](LICENSE) file for details.  
+当プロジェクトは PolyForm Noncommercial License 1.0.0 の下で公開されています。商用利用は禁止されています。詳細は [LICENSE](LICENSE) ファイルをご確認ください。
