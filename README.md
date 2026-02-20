@@ -18,8 +18,8 @@ This application scans a selected folder, detects duplicate files accurately usi
 
 ## Installation / インストール方法
 
-Download the latest version from the [Releases](https://github.com/nekochan/file-duplicate-organizer/releases) page.  
-[Releases](https://github.com/nekochan/file-duplicate-organizer/releases) ページから、最新バージョンのインストーラをダウンロードしてください。
+Download the latest version from the [Releases](https://github.com/Nekochan-02/file-duplicate-organizer/releases) page.  
+[Releases](https://github.com/Nekochan-02/file-duplicate-organizer/releases) ページから、最新バージョンのインストーラをダウンロードしてください。
 
 - **Windows**: Download `File Duplicate Organizer_*_x64-setup.exe` and follow the installer.
   > Note: If Windows SmartScreen shows a warning, please select "More info" and click "Run anyway".  
@@ -33,7 +33,7 @@ You'll need Node.js and Rust installed on your machine.
 
 ```bash
 # Clone the repository
-git clone https://github.com/nekochan/file-duplicate-organizer.git
+git clone https://github.com/Nekochan-02/file-duplicate-organizer.git
 cd file-duplicate-organizer
 
 # Install dependencies (依存パッケージのインストール)

@@ -36,7 +36,7 @@
     "updater": {
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDBFNERDOTk0RTM5OTJGMUUKUldRZUw1bmpsTWxORGgwMnpLT0NLU1diaDc2SkZNYmFlMUZQVHBHN1FkTG5ra2kvZzBjVEVhZCsK",
       "endpoints": [
-        "https://github.com/nekochan/file-duplicate-organizer/releases/latest/download/latest.json"
+        "https://github.com/Nekochan-02/file-duplicate-organizer/releases/latest/download/latest.json"
       ]
     }
   }
