@@ -22,3 +22,18 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Tauri and Rust build artifacts
+src-tauri/target/
+src-tauri/build_log.txt
+dev_log.txt
+*.exe
+*.msi
+
+# Environment and Secret files
+.env
+.env.*
+!.env.example
+*.key
+*.key.pub
+updater.key
