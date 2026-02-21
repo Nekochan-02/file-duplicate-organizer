@@ -1,6 +1,6 @@
 [package]
 name = "file-duplicate-organizer"
-version = "0.1.4"
+version = "0.1.5"
 description = "A Tauri App"
 authors = ["Nekochan-02"]
 edition = "2021"
