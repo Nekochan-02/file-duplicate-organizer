@@ -26,7 +26,9 @@ dist-ssr
 # Tauri and Rust build artifacts
 src-tauri/target/
 src-tauri/build_log.txt
-dev_log.txt
+dev_log*.txt
+error_log.txt
+test_files/
 *.exe
 *.msi
 
