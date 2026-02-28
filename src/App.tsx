@@ -142,11 +142,36 @@ function App() {
     });
   };
 
-  // 全選択 / 全解除
+  // 全選択 / 全解除 / 一つを残して選択
   const selectAll = () => {
     const allPaths = new Set<string>();
     groups.forEach((g) => g.files.forEach((f) => allPaths.add(f.path)));
     setSelectedFiles(allPaths);
+  };
+
+  const selectAllButOne = () => {
+    const pathsToSelect = new Set<string>();
+    groups.forEach((group) => {
+      if (group.files.length > 1) {
+        // Find the file with the maximum size
+        let maxSizeFileIndex = 0;
+        let maxSize = group.files[0].size;
+        for (let i = 1; i < group.files.length; i++) {
+          if (group.files[i].size > maxSize) {
+            maxSize = group.files[i].size;
+            maxSizeFileIndex = i;
+          }
+        }
+
+        // Add all files except the one with the maximum size
+        group.files.forEach((file, index) => {
+          if (index !== maxSizeFileIndex) {
+            pathsToSelect.add(file.path);
+          }
+        });
+      }
+    });
+    setSelectedFiles(pathsToSelect);
   };
 
   const deselectAll = () => {
@@ -348,6 +373,9 @@ function App() {
           <div className="action-buttons">
             <button className="btn btn-ghost" onClick={selectAll}>
               全選択
+            </button>
+            <button className="btn btn-ghost" onClick={selectAllButOne}>
+              サイズ最大を残して選択
             </button>
             <button className="btn btn-ghost" onClick={deselectAll}>
               選択解除
