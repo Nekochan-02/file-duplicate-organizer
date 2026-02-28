@@ -49,6 +49,7 @@ function App() {
   const [toast, setToast] = useState<string | null>(null);
   const [scanComplete, setScanComplete] = useState(false);
   const [appVersion, setAppVersion] = useState("");
+  const [scanMode, setScanMode] = useState<"strict" | "size_only">("strict");
 
   // 初期化時にバージョン取得
   useEffect(() => {
@@ -116,7 +117,10 @@ function App() {
     setSelectedFiles(new Set());
     setPreview(null);
     try {
-      const result = await invoke<DuplicateGroup[]>("scan_folder", { path: folderPath });
+      const result = await invoke<DuplicateGroup[]>("scan_folder", {
+        path: folderPath,
+        mode: scanMode
+      });
       setGroups(result);
       setScanComplete(true);
       if (result.length === 0) {
@@ -248,21 +252,36 @@ function App() {
         </div>
       </header>
 
-      {/* Folder Picker */}
+      {/* Folder Picker & Options */}
       <div className="folder-picker">
-        <button className="btn btn-ghost" onClick={pickFolder}>
-          📁 フォルダ選択
-        </button>
-        <div className="folder-path">
-          {folderPath || "スキャンするフォルダを選択してください..."}
+        <div className="picker-container" style={{ display: "flex", gap: "10px", width: "100%", alignItems: "center" }}>
+          <button className="btn btn-ghost" onClick={pickFolder} style={{ flexShrink: 0 }}>
+            📁 フォルダ選択
+          </button>
+          <div className="folder-path" style={{ flexGrow: 1, textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap" }}>
+            {folderPath || "スキャンするフォルダを選択してください..."}
+          </div>
+
+          <select
+            className="select-input"
+            value={scanMode}
+            onChange={(e) => setScanMode(e.target.value as "strict" | "size_only")}
+            title="検出モード"
+            style={{ padding: "8px", borderRadius: "4px", border: "1px solid var(--border-color)", background: "var(--bg-secondary)", color: "var(--text-primary)" }}
+          >
+            <option value="strict">完全一致 (推奨)</option>
+            <option value="size_only">サイズのみ比較 (高速)</option>
+          </select>
+
+          <button
+            className="btn btn-primary"
+            onClick={startScan}
+            disabled={!folderPath || isScanning}
+            style={{ flexShrink: 0 }}
+          >
+            {isScanning ? "⏳ スキャン中..." : "🔍 スキャン"}
+          </button>
         </div>
-        <button
-          className="btn btn-primary"
-          onClick={startScan}
-          disabled={!folderPath || isScanning}
-        >
-          {isScanning ? "⏳ スキャン中..." : "🔍 スキャン"}
-        </button>
       </div>
 
       {/* Main Content */}

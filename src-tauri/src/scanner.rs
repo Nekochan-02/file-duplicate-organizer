@@ -27,8 +27,8 @@ pub struct DuplicateGroup {
 /// アルゴリズム：
 ///   ステージ1: ファイル名でグループ化（同名ファイルの検出）
 ///   ステージ2: ファイルサイズでグループ化（同サイズのみが候補）
-///   ステージ3: SHA-256ハッシュで最終判定
-pub fn scan_for_duplicates(folder_path: &str) -> Result<Vec<DuplicateGroup>, String> {
+///   ステージ3: SHA-256ハッシュで最終判定 (strict モード時のみ)
+pub fn scan_for_duplicates(folder_path: &str, mode: &str) -> Result<Vec<DuplicateGroup>, String> {
     let path = Path::new(folder_path);
     if !path.exists() {
         return Err(format!("フォルダが存在しません: {}", folder_path));
@@ -68,52 +68,70 @@ pub fn scan_for_duplicates(folder_path: &str) -> Result<Vec<DuplicateGroup>, Str
         .filter(|(_, files)| files.len() >= 2)
         .collect();
 
-    // ステージ3: SHA-256ハッシュで最終判定
     let mut duplicate_groups: Vec<DuplicateGroup> = Vec::new();
 
-    for (size, files) in candidates {
-        let mut hash_groups: HashMap<String, Vec<PathBuf>> = HashMap::new();
+    if mode == "size_only" {
+        // ステージ3をスキップし、サイズが同じものをそのままグループ化
+        for (size, files) in candidates {
+            let file_infos: Vec<FileInfo> = files
+                .iter()
+                .map(|fp| {
+                    let name = fp.file_name().unwrap_or_default().to_string_lossy().to_string();
+                    let extension = fp.extension().unwrap_or_default().to_string_lossy().to_string();
+                    FileInfo {
+                        path: fp.to_string_lossy().to_string(),
+                        name,
+                        size,
+                        hash: format!("size_{}", size), // ダミーハッシュ
+                        extension,
+                    }
+                })
+                .collect();
 
-        for file_path in &files {
-            match calculate_hash(file_path) {
-                Ok(hash) => {
-                    hash_groups.entry(hash).or_default().push(file_path.clone());
-                }
-                Err(_) => continue, // ハッシュ計算に失敗したファイルはスキップ
-            }
+            duplicate_groups.push(DuplicateGroup {
+                hash: format!("size_{}", size),
+                size,
+                files: file_infos,
+            });
         }
+    } else {
+        // ステージ3: strictモードの場合は、SHA-256ハッシュで厳密に最終判定
+        for (size, files) in candidates {
+            let mut hash_groups: HashMap<String, Vec<PathBuf>> = HashMap::new();
 
-        // ハッシュが同一のファイルが2つ以上あるグループを重複として登録
-        for (hash, matched_files) in hash_groups {
-            if matched_files.len() >= 2 {
-                let file_infos: Vec<FileInfo> = matched_files
-                    .iter()
-                    .map(|fp| {
-                        let name = fp
-                            .file_name()
-                            .unwrap_or_default()
-                            .to_string_lossy()
-                            .to_string();
-                        let extension = fp
-                            .extension()
-                            .unwrap_or_default()
-                            .to_string_lossy()
-                            .to_string();
-                        FileInfo {
-                            path: fp.to_string_lossy().to_string(),
-                            name,
-                            size,
-                            hash: hash.clone(),
-                            extension,
-                        }
-                    })
-                    .collect();
+            for file_path in &files {
+                match calculate_hash(file_path) {
+                    Ok(hash) => {
+                        hash_groups.entry(hash).or_default().push(file_path.clone());
+                    }
+                    Err(_) => continue, // ハッシュ計算に失敗したファイルはスキップ
+                }
+            }
 
-                duplicate_groups.push(DuplicateGroup {
-                    hash: hash.clone(),
-                    size,
-                    files: file_infos,
-                });
+            // ハッシュが同一のファイルが2つ以上あるグループを重複として登録
+            for (hash, matched_files) in hash_groups {
+                if matched_files.len() >= 2 {
+                    let file_infos: Vec<FileInfo> = matched_files
+                        .iter()
+                        .map(|fp| {
+                            let name = fp.file_name().unwrap_or_default().to_string_lossy().to_string();
+                            let extension = fp.extension().unwrap_or_default().to_string_lossy().to_string();
+                            FileInfo {
+                                path: fp.to_string_lossy().to_string(),
+                                name,
+                                size,
+                                hash: hash.clone(),
+                                extension,
+                            }
+                        })
+                        .collect();
+
+                    duplicate_groups.push(DuplicateGroup {
+                        hash: hash.clone(),
+                        size,
+                        files: file_infos,
+                    });
+                }
             }
         }
     }
@@ -276,8 +294,8 @@ mod tests {
         let mut f5 = File::create(&file5).unwrap();
         f5.write_all(b"Size identical, but...B").unwrap(); // 23 bytes
 
-        // スキャン実行
-        let groups = scan_for_duplicates(test_dir).unwrap();
+        // スキャン実行 (strict mode)
+        let groups = scan_for_duplicates(test_dir, "strict").unwrap();
 
         // クリーンアップ
         let _ = fs::remove_dir_all(test_dir);

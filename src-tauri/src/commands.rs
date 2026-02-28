@@ -3,8 +3,8 @@ use tauri::command;
 
 /// フォルダをスキャンして重複グループを返す
 #[command]
-pub fn scan_folder(path: String) -> Result<Vec<scanner::DuplicateGroup>, String> {
-    scanner::scan_for_duplicates(&path)
+pub fn scan_folder(path: String, mode: String) -> Result<Vec<scanner::DuplicateGroup>, String> {
+    scanner::scan_for_duplicates(&path, &mode)
 }
 
 /// ファイルのプレビューを取得
