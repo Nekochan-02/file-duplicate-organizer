@@ -23,12 +23,33 @@ pub struct DuplicateGroup {
     pub files: Vec<FileInfo>,
 }
 
-/// 指定フォルダ直下のファイルを走査し、重複グループを返す
+/// フォルダ内のファイルを再帰的に（または直下のみ）収集するヘルパー
+fn collect_files(dir: &Path, recursive: bool) -> Result<Vec<PathBuf>, String> {
+    let mut files = Vec::new();
+    if dir.is_dir() {
+        // fs::read_dir がエラーを返した場合はそのディレクトリはスキップ（権限エラー等への配慮）
+        if let Ok(entries) = fs::read_dir(dir) {
+            for entry in entries.filter_map(|e| e.ok()) {
+                let path = entry.path();
+                if path.is_file() {
+                    files.push(path);
+                } else if path.is_dir() && recursive {
+                    if let Ok(mut sub_files) = collect_files(&path, true) {
+                        files.append(&mut sub_files);
+                    }
+                }
+            }
+        }
+    }
+    Ok(files)
+}
+
+/// 指定フォルダ以下のファイルを走査し、重複グループを返す
 /// アルゴリズム：
 ///   ステージ1: ファイル名でグループ化（同名ファイルの検出）
 ///   ステージ2: ファイルサイズでグループ化（同サイズのみが候補）
 ///   ステージ3: SHA-256ハッシュで最終判定 (strict モード時のみ)
-pub fn scan_for_duplicates(folder_path: &str, mode: &str) -> Result<Vec<DuplicateGroup>, String> {
+pub fn scan_for_duplicates(folder_path: &str, mode: &str, recursive: bool) -> Result<Vec<DuplicateGroup>, String> {
     let path = Path::new(folder_path);
     if !path.exists() {
         return Err(format!("フォルダが存在しません: {}", folder_path));
@@ -37,19 +58,8 @@ pub fn scan_for_duplicates(folder_path: &str, mode: &str) -> Result<Vec<Duplicat
         return Err(format!("ディレクトリではありません: {}", folder_path));
     }
 
-    // フォルダ直下のファイルを収集（サブフォルダは除外）
-    let entries: Vec<PathBuf> = fs::read_dir(path)
-        .map_err(|e| format!("フォルダの読み取りに失敗: {}", e))?
-        .filter_map(|entry| {
-            let entry = entry.ok()?;
-            let file_path = entry.path();
-            if file_path.is_file() {
-                Some(file_path)
-            } else {
-                None
-            }
-        })
-        .collect();
+    // ファイルを収集
+    let entries = collect_files(path, recursive)?;
 
     // ステージ2: ファイルサイズでグループ化
     let mut size_groups: HashMap<u64, Vec<PathBuf>> = HashMap::new();
@@ -187,6 +197,14 @@ pub fn get_preview(file_path: &str) -> Result<FilePreview, String> {
                 file_path: file_path.to_string(),
             })
         }
+        "mp4" | "webm" | "ogg" | "mov" | "avi" | "mkv" | "wmv" | "flv" | "m4v" => {
+            // 動画ファイルの場合は中身を直接読み込まずパスだけを返す
+            Ok(FilePreview {
+                preview_type: "video".to_string(),
+                content: "".to_string(),
+                file_path: file_path.to_string(),
+            })
+        }
         "txt" | "md" | "rs" | "js" | "ts" | "tsx" | "jsx" | "css" | "html" | "json" | "toml"
         | "yaml" | "yml" | "xml" | "csv" | "log" | "py" | "java" | "c" | "cpp" | "h" | "go"
         | "rb" | "php" | "sh" | "bat" | "ps1" => {
@@ -294,8 +312,8 @@ mod tests {
         let mut f5 = File::create(&file5).unwrap();
         f5.write_all(b"Size identical, but...B").unwrap(); // 23 bytes
 
-        // スキャン実行 (strict mode)
-        let groups = scan_for_duplicates(test_dir, "strict").unwrap();
+        // スキャン実行 (strict mode, recursive false)
+        let groups = scan_for_duplicates(test_dir, "strict", false).unwrap();
 
         // クリーンアップ
         let _ = fs::remove_dir_all(test_dir);

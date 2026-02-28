@@ -1,8 +1,8 @@
 import { useState, useCallback, useEffect } from "react";
-import { invoke } from "@tauri-apps/api/core";
-import { open } from "@tauri-apps/plugin-dialog";
+import { invoke, convertFileSrc } from "@tauri-apps/api/core";
+import { openPath } from "@tauri-apps/plugin-opener";
+import { open as openDialog, ask, message } from "@tauri-apps/plugin-dialog";
 import { check } from "@tauri-apps/plugin-updater";
-import { ask, message } from "@tauri-apps/plugin-dialog";
 import { getVersion } from "@tauri-apps/api/app";
 import "./App.css";
 
@@ -50,6 +50,7 @@ function App() {
   const [scanComplete, setScanComplete] = useState(false);
   const [appVersion, setAppVersion] = useState("");
   const [scanMode, setScanMode] = useState<"strict" | "size_only">("strict");
+  const [recursive, setRecursive] = useState(false);
 
   // 初期化時にバージョン取得
   useEffect(() => {
@@ -67,7 +68,7 @@ function App() {
         );
         if (yes) {
           showToast("アップデートをダウンロード中...");
-          await update.downloadAndInstall((event) => {
+          await update.downloadAndInstall((event: any) => {
             switch (event.event) {
               case 'Started':
                 showToast(`ダウンロード開始...`);
@@ -98,7 +99,7 @@ function App() {
 
   // フォルダ選択
   const pickFolder = async () => {
-    const selected = await open({ directory: true, multiple: false });
+    const selected = await openDialog({ directory: true, multiple: false });
     if (selected) {
       setFolderPath(selected as string);
       setScanComplete(false);
@@ -119,7 +120,8 @@ function App() {
     try {
       const result = await invoke<DuplicateGroup[]>("scan_folder", {
         path: folderPath,
-        mode: scanMode
+        mode: scanMode,
+        recursive: recursive
       });
       setGroups(result);
       setScanComplete(true);
@@ -273,6 +275,16 @@ function App() {
             <option value="size_only">サイズのみ比較 (高速)</option>
           </select>
 
+          <label style={{ display: "flex", alignItems: "center", gap: "5px", cursor: "pointer", fontSize: "14px", flexShrink: 0, paddingRight: "8px" }}>
+            <input
+              type="checkbox"
+              checked={recursive}
+              onChange={(e) => setRecursive(e.target.checked)}
+              disabled={isScanning}
+            />
+            サブフォルダも検索する
+          </label>
+
           <button
             className="btn btn-primary"
             onClick={startScan}
@@ -372,6 +384,23 @@ function App() {
                 src={preview.content}
                 alt="Preview"
               />
+            )}
+            {preview?.preview_type === "video" && (
+              <div className="video-preview-container" style={{ display: "flex", flexDirection: "column", gap: "10px", alignItems: "center" }}>
+                <video
+                  className="preview-image"
+                  src={`${convertFileSrc(preview.file_path)}#t=0.1`}
+                  preload="metadata"
+                  style={{ maxWidth: "100%", maxHeight: "300px", borderRadius: "8px", objectFit: "contain", backgroundColor: "#000" }}
+                />
+                <button
+                  className="btn btn-primary"
+                  onClick={() => openPath(preview.file_path)}
+                  style={{ fontSize: "14px", padding: "8px 16px", borderRadius: "6px" }}
+                >
+                  ▶️ 外部プレイヤーで再生 (OS標準アプリ)
+                </button>
+              </div>
             )}
             {preview?.preview_type === "text" && (
               <pre className="preview-text">{preview.content}</pre>
