@@ -46,6 +46,10 @@ npm run tauri dev
 npm run tauri build
 ```
 
+## 免責事項 (Disclaimer)
+
+本ソフトウェアは「現状のまま（As is）」で提供されます。ファイル削除機能はOSの「ゴミ箱」を利用するなど安全に配慮して設計されていますが、本ソフトウェアの使用によって生じたデータの消失、破損、その他のいかなる損害についても、作者は一切の責任を負いません。本ソフトウェアをご利用になる場合は、自己責任においてお使いください。
+
 ## License / ライセンス
 This project is licensed under the PolyForm Noncommercial License 1.0.0 - see the [LICENSE](LICENSE) file for details.  
 当プロジェクトは PolyForm Noncommercial License 1.0.0 の下で公開されています。商用利用は禁止されています。詳細は [LICENSE](LICENSE) ファイルをご確認ください。
