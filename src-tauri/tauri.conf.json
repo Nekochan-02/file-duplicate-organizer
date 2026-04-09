@@ -18,11 +18,18 @@
       }
     ],
     "security": {
-      "csp": null,
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' asset: https://asset.localhost data:; connect-src 'self' https://github.com",
       "assetProtocol": {
         "enable": true,
         "scope": [
-          "**"
+          "$APPDATA/**",
+          "$APPCONFIG/**",
+          "$HOME/Desktop/**",
+          "$HOME/Documents/**",
+          "$HOME/Downloads/**",
+          "$HOME/Pictures/**",
+          "$HOME/Videos/**",
+          "$HOME/Music/**"
         ]
       }
     }

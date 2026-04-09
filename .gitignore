@@ -32,6 +32,10 @@ test_files/
 *.exe
 *.msi
 
+# CI/workflow artifact files
+job_log.txt
+logs.zip
+
 # Environment and Secret files
 .env
 .env.*
