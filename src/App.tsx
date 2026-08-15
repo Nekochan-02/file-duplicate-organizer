@@ -386,17 +386,46 @@ function App() {
               />
             )}
             {preview?.preview_type === "video" && (
-              <div className="video-preview-container" style={{ display: "flex", flexDirection: "column", gap: "10px", alignItems: "center" }}>
-                <video
-                  className="preview-image"
-                  src={`${convertFileSrc(preview.file_path)}#t=0.1`}
-                  preload="metadata"
-                  style={{ maxWidth: "100%", maxHeight: "300px", borderRadius: "8px", objectFit: "contain", backgroundColor: "#000" }}
-                />
+              <div className="video-preview-container" style={{ display: "flex", flexDirection: "column", gap: "12px", alignItems: "center", width: "100%" }}>
+                {preview.content ? (
+                  <div style={{ position: "relative", width: "100%", display: "flex", justifyContent: "center" }}>
+                    <img
+                      className="preview-image"
+                      src={preview.content}
+                      alt="Video Thumbnail"
+                      style={{ maxWidth: "100%", maxHeight: "300px", borderRadius: "8px", objectFit: "contain", backgroundColor: "#000" }}
+                    />
+                    <div
+                      style={{
+                        position: "absolute",
+                        bottom: "8px",
+                        right: "8px",
+                        background: "rgba(0, 0, 0, 0.75)",
+                        color: "#fff",
+                        padding: "3px 8px",
+                        borderRadius: "4px",
+                        fontSize: "11px",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "4px"
+                      }}
+                    >
+                      🎬 動画サムネイル
+                    </div>
+                  </div>
+                ) : (
+                  <video
+                    className="preview-image"
+                    src={`${convertFileSrc(preview.file_path)}#t=0.1`}
+                    preload="metadata"
+                    controls
+                    style={{ maxWidth: "100%", maxHeight: "300px", borderRadius: "8px", objectFit: "contain", backgroundColor: "#000" }}
+                  />
+                )}
                 <button
                   className="btn btn-primary"
                   onClick={() => openPath(preview.file_path)}
-                  style={{ fontSize: "14px", padding: "8px 16px", borderRadius: "6px" }}
+                  style={{ fontSize: "13px", padding: "8px 16px", borderRadius: "6px", width: "100%", maxWidth: "280px" }}
                 >
                   ▶️ 外部プレイヤーで再生 (OS標準アプリ)
                 </button>

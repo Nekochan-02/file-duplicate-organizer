@@ -172,8 +172,145 @@ fn calculate_hash(path: &Path) -> Result<String, String> {
     Ok(format!("{:x}", result))
 }
 
+#[cfg(target_os = "windows")]
+fn extract_thumbnail_windows(file_path: &str, max_size: i32) -> Result<String, String> {
+    use std::ffi::OsStr;
+    use std::os::windows::ffi::OsStrExt;
+    use windows::core::{Interface, PCWSTR};
+    use windows::Win32::Foundation::SIZE;
+    use windows::Win32::Graphics::Gdi::{
+        DeleteObject, GetDIBits, GetDC, ReleaseDC, GetObjectW, BITMAP, BITMAPINFO, BITMAPINFOHEADER,
+        BI_RGB, DIB_RGB_COLORS, RGBQUAD,
+    };
+    use windows::Win32::System::Com::{
+        CoInitializeEx, COINIT_APARTMENTTHREADED, COINIT_DISABLE_OLE1DDE,
+    };
+    use windows::Win32::UI::Shell::{
+        IShellItem, IShellItemImageFactory, SHCreateItemFromParsingName, SIIGBF_BIGGERSIZEOK,
+        SIIGBF_RESIZETOFIT,
+    };
+
+    unsafe {
+        let _ = CoInitializeEx(None, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);
+    }
+
+    let wide_path: Vec<u16> = OsStr::new(file_path)
+        .encode_wide()
+        .chain(std::iter::once(0))
+        .collect();
+
+    let hbitmap = unsafe {
+        let item: IShellItem = SHCreateItemFromParsingName(PCWSTR(wide_path.as_ptr()), None)
+            .map_err(|e| format!("SHCreateItemFromParsingName failed: {}", e))?;
+        let factory: IShellItemImageFactory = item
+            .cast()
+            .map_err(|e| format!("Failed to cast to IShellItemImageFactory: {}", e))?;
+        let size = SIZE {
+            cx: max_size,
+            cy: max_size,
+        };
+        let flags = SIIGBF_RESIZETOFIT | SIIGBF_BIGGERSIZEOK;
+        factory
+            .GetImage(size, flags)
+            .map_err(|e| format!("GetImage failed: {}", e))?
+    };
+
+    let mut bm = BITMAP::default();
+    unsafe {
+        GetObjectW(
+            hbitmap,
+            std::mem::size_of::<BITMAP>() as i32,
+            Some(&mut bm as *mut _ as *mut _),
+        );
+    }
+
+    let width = bm.bmWidth;
+    let height = bm.bmHeight;
+
+    if width <= 0 || height <= 0 {
+        unsafe {
+            let _ = DeleteObject(hbitmap);
+        }
+        return Err("Invalid bitmap dimensions".to_string());
+    }
+
+    let mut bmi = BITMAPINFO {
+        bmiHeader: BITMAPINFOHEADER {
+            biSize: std::mem::size_of::<BITMAPINFOHEADER>() as u32,
+            biWidth: width,
+            biHeight: height,
+            biPlanes: 1,
+            biBitCount: 32,
+            biCompression: BI_RGB.0,
+            biSizeImage: (width * height * 4) as u32,
+            biXPelsPerMeter: 0,
+            biYPelsPerMeter: 0,
+            biClrUsed: 0,
+            biClrImportant: 0,
+        },
+        bmiColors: [RGBQUAD::default()],
+    };
+
+    let image_data_size = (width * height * 4) as usize;
+    let mut pixel_data = vec![0u8; image_data_size];
+
+    unsafe {
+        let hdc = GetDC(None);
+        GetDIBits(
+            hdc,
+            hbitmap,
+            0,
+            height as u32,
+            Some(pixel_data.as_mut_ptr() as *mut _),
+            &mut bmi,
+            DIB_RGB_COLORS,
+        );
+        ReleaseDC(None, hdc);
+        let _ = DeleteObject(hbitmap);
+    }
+
+    // BMPファイル構造の作成
+    let file_header_size = 14u32;
+    let info_header_size = 40u32;
+    let total_file_size = file_header_size + info_header_size + (image_data_size as u32);
+    let bf_off_bits = file_header_size + info_header_size;
+
+    let mut bmp_bytes = Vec::with_capacity(total_file_size as usize);
+
+    // BITMAPFILEHEADER
+    bmp_bytes.extend_from_slice(&0x4D42u16.to_le_bytes()); // 'BM'
+    bmp_bytes.extend_from_slice(&total_file_size.to_le_bytes());
+    bmp_bytes.extend_from_slice(&0u16.to_le_bytes()); // reserved1
+    bmp_bytes.extend_from_slice(&0u16.to_le_bytes()); // reserved2
+    bmp_bytes.extend_from_slice(&bf_off_bits.to_le_bytes());
+
+    // BITMAPINFOHEADER
+    bmp_bytes.extend_from_slice(&40u32.to_le_bytes()); // biSize
+    bmp_bytes.extend_from_slice(&(width as i32).to_le_bytes()); // biWidth
+    bmp_bytes.extend_from_slice(&(height as i32).to_le_bytes()); // biHeight
+    bmp_bytes.extend_from_slice(&1u16.to_le_bytes()); // biPlanes
+    bmp_bytes.extend_from_slice(&32u16.to_le_bytes()); // biBitCount
+    bmp_bytes.extend_from_slice(&0u32.to_le_bytes()); // biCompression (BI_RGB)
+    bmp_bytes.extend_from_slice(&(image_data_size as u32).to_le_bytes()); // biSizeImage
+    bmp_bytes.extend_from_slice(&0i32.to_le_bytes()); // biXPelsPerMeter
+    bmp_bytes.extend_from_slice(&0i32.to_le_bytes()); // biYPelsPerMeter
+    bmp_bytes.extend_from_slice(&0u32.to_le_bytes()); // biClrUsed
+    bmp_bytes.extend_from_slice(&0u32.to_le_bytes()); // biClrImportant
+
+    // ピクセルデータ (BGRA)
+    bmp_bytes.extend_from_slice(&pixel_data);
+
+    let base64_str = base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &bmp_bytes);
+    Ok(format!("data:image/bmp;base64,{}", base64_str))
+}
+
+#[cfg(not(target_os = "windows"))]
+fn extract_thumbnail_windows(_file_path: &str, _max_size: i32) -> Result<String, String> {
+    Err("Thumbnail extraction is only supported on Windows".to_string())
+}
+
 /// ファイルのプレビューデータを取得
-/// 画像の場合はbase64エンコード、テキストの場合は先頭行を返す
+/// 画像の場合はbase64エンコード、動画の場合はサムネイル画像、テキストの場合は先頭行を返す
 pub fn get_preview(file_path: &str) -> Result<FilePreview, String> {
     let path = Path::new(file_path);
     if !path.exists() {
@@ -197,13 +334,23 @@ pub fn get_preview(file_path: &str) -> Result<FilePreview, String> {
                 file_path: file_path.to_string(),
             })
         }
-        "mp4" | "webm" | "ogg" | "mov" | "avi" | "mkv" | "wmv" | "flv" | "m4v" => {
-            // 動画ファイルの場合は中身を直接読み込まずパスだけを返す
-            Ok(FilePreview {
-                preview_type: "video".to_string(),
-                content: "".to_string(),
-                file_path: file_path.to_string(),
-            })
+        "mp4" | "webm" | "ogg" | "mov" | "avi" | "mkv" | "wmv" | "flv" | "m4v" | "m2ts" | "mts" | "3gp" => {
+            // Windows APIでサムネイルを取得
+            match extract_thumbnail_windows(file_path, 400) {
+                Ok(thumb_data_url) => Ok(FilePreview {
+                    preview_type: "video".to_string(),
+                    content: thumb_data_url,
+                    file_path: file_path.to_string(),
+                }),
+                Err(_) => {
+                    // サムネイル抽出に失敗した場合でもフォールバック用にパスを返す
+                    Ok(FilePreview {
+                        preview_type: "video".to_string(),
+                        content: "".to_string(),
+                        file_path: file_path.to_string(),
+                    })
+                }
+            }
         }
         "txt" | "md" | "rs" | "js" | "ts" | "tsx" | "jsx" | "css" | "html" | "json" | "toml"
         | "yaml" | "yml" | "xml" | "csv" | "log" | "py" | "java" | "c" | "cpp" | "h" | "go"
@@ -333,5 +480,31 @@ mod tests {
         assert!(paths.contains(&file1.to_string_lossy().to_string()));
         assert!(paths.contains(&file2.to_string_lossy().to_string()));
         assert!(!paths.contains(&file4.to_string_lossy().to_string()));
+    }
+
+    #[test]
+    fn test_get_preview_types() {
+        let test_dir = "test_preview_dir";
+        let _ = fs::remove_dir_all(test_dir);
+        fs::create_dir(test_dir).unwrap();
+
+        let txt_file = PathBuf::from(test_dir).join("test.txt");
+        let mut f = File::create(&txt_file).unwrap();
+        f.write_all(b"line 1\nline 2\nline 3").unwrap();
+
+        let preview = get_preview(&txt_file.to_string_lossy()).unwrap();
+        assert_eq!(preview.preview_type, "text");
+        assert!(preview.content.contains("line 1"));
+
+        // 動画形式のプレビュー（存在しない/ダミーファイルでもクラッシュせずvideo型を返す）
+        let video_file = PathBuf::from(test_dir).join("test.mp4");
+        let mut f_v = File::create(&video_file).unwrap();
+        f_v.write_all(b"dummy mp4 content").unwrap();
+
+        let video_preview = get_preview(&video_file.to_string_lossy()).unwrap();
+        assert_eq!(video_preview.preview_type, "video");
+        assert_eq!(video_preview.file_path, video_file.to_string_lossy());
+
+        let _ = fs::remove_dir_all(test_dir);
     }
 }
