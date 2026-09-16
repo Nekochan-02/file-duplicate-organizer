@@ -5,21 +5,27 @@ use std::fs;
 use std::io::Read;
 use std::path::{Path, PathBuf};
 
+const MAX_SIZE_TOLERANCE_BYTES: u64 = 1024 * 1024;
+
 /// 個別ファイルの情報
 #[derive(Debug, Clone, Serialize)]
 pub struct FileInfo {
     pub path: String,
     pub name: String,
     pub size: u64,
-    pub hash: String,
+    pub hash: Option<String>,
     pub extension: String,
 }
 
-/// 重複グループ（同一内容を持つファイル群）
+/// 重複または近似サイズ候補のグループ
 #[derive(Debug, Clone, Serialize)]
 pub struct DuplicateGroup {
-    pub hash: String,
+    pub hash: Option<String>,
     pub size: u64,
+    pub min_size: u64,
+    pub max_size: u64,
+    pub max_size_delta: u64,
+    pub comparison_type: String,
     pub files: Vec<FileInfo>,
 }
 
@@ -44,12 +50,45 @@ fn collect_files(dir: &Path, recursive: bool) -> Result<Vec<PathBuf>, String> {
     Ok(files)
 }
 
-/// 指定フォルダ以下のファイルを走査し、重複グループを返す
-/// アルゴリズム：
-///   ステージ1: ファイル名でグループ化（同名ファイルの検出）
-///   ステージ2: ファイルサイズでグループ化（同サイズのみが候補）
-///   ステージ3: SHA-256ハッシュで最終判定 (strict モード時のみ)
-pub fn scan_for_duplicates(folder_path: &str, mode: &str, recursive: bool) -> Result<Vec<DuplicateGroup>, String> {
+/// サイズ順に並んだファイルを、グループ内の最大・最小サイズ差が許容差以内になるようにまとめる。
+/// グループ同士は重ならないため、サイズ差の連鎖による過剰なグループ化を避けられる。
+fn group_files_by_size_tolerance(
+    file_sizes: &[(u64, PathBuf)],
+    tolerance_bytes: u64,
+) -> Vec<(u64, u64, Vec<(u64, PathBuf)>)> {
+    let mut groups = Vec::new();
+    let mut start = 0;
+
+    while start < file_sizes.len() {
+        let min_size = file_sizes[start].0;
+        let mut end = start + 1;
+
+        while end < file_sizes.len()
+            && file_sizes[end].0.saturating_sub(min_size) <= tolerance_bytes
+        {
+            end += 1;
+        }
+
+        if end - start >= 2 {
+            let max_size = file_sizes[end - 1].0;
+            groups.push((min_size, max_size, file_sizes[start..end].to_vec()));
+        }
+
+        start = end;
+    }
+
+    groups
+}
+
+/// 指定フォルダ以下のファイルを走査し、重複グループを返す。
+/// strict は同一サイズ候補を SHA-256 で厳密比較し、size_only は
+/// 指定されたサイズ許容差以内のファイルを近似サイズ候補として返す。
+pub fn scan_for_duplicates(
+    folder_path: &str,
+    mode: &str,
+    recursive: bool,
+    size_tolerance_bytes: u64,
+) -> Result<Vec<DuplicateGroup>, String> {
     let path = Path::new(folder_path);
     if !path.exists() {
         return Err(format!("フォルダが存在しません: {}", folder_path));
@@ -57,55 +96,92 @@ pub fn scan_for_duplicates(folder_path: &str, mode: &str, recursive: bool) -> Re
     if !path.is_dir() {
         return Err(format!("ディレクトリではありません: {}", folder_path));
     }
+    if mode != "strict" && mode != "size_only" {
+        return Err(format!("不正なスキャンモードです: {}", mode));
+    }
+    if mode == "size_only" && size_tolerance_bytes > MAX_SIZE_TOLERANCE_BYTES {
+        return Err(format!(
+            "サイズ許容差は {} bytes 以下にしてください",
+            MAX_SIZE_TOLERANCE_BYTES
+        ));
+    }
 
     // ファイルを収集
     let entries = collect_files(path, recursive)?;
 
-    // ステージ2: ファイルサイズでグループ化
-    let mut size_groups: HashMap<u64, Vec<PathBuf>> = HashMap::new();
-    for file_path in &entries {
-        if let Ok(metadata) = fs::metadata(file_path) {
-            size_groups
-                .entry(metadata.len())
-                .or_default()
-                .push(file_path.clone());
-        }
-    }
-
-    // 同サイズのファイルが2つ以上あるグループのみ残す
-    let candidates: Vec<(u64, Vec<PathBuf>)> = size_groups
-        .into_iter()
-        .filter(|(_, files)| files.len() >= 2)
+    // ファイルサイズとパスを保持し、結果を安定させるためサイズ・パス順に並べる
+    let mut file_sizes: Vec<(u64, PathBuf)> = entries
+        .iter()
+        .filter_map(|file_path| {
+            fs::metadata(file_path)
+                .ok()
+                .map(|metadata| (metadata.len(), file_path.clone()))
+        })
         .collect();
+    file_sizes.sort_by(|(size_a, path_a), (size_b, path_b)| {
+        size_a.cmp(size_b).then_with(|| path_a.cmp(path_b))
+    });
 
     let mut duplicate_groups: Vec<DuplicateGroup> = Vec::new();
 
     if mode == "size_only" {
-        // ステージ3をスキップし、サイズが同じものをそのままグループ化
-        for (size, files) in candidates {
+        // SHA-256を計算せず、実サイズの差が許容範囲内の候補を返す。
+        for (min_size, max_size, files) in
+            group_files_by_size_tolerance(&file_sizes, size_tolerance_bytes)
+        {
             let file_infos: Vec<FileInfo> = files
                 .iter()
-                .map(|fp| {
-                    let name = fp.file_name().unwrap_or_default().to_string_lossy().to_string();
-                    let extension = fp.extension().unwrap_or_default().to_string_lossy().to_string();
+                .map(|(file_size, file_path)| {
+                    let name = file_path
+                        .file_name()
+                        .unwrap_or_default()
+                        .to_string_lossy()
+                        .to_string();
+                    let extension = file_path
+                        .extension()
+                        .unwrap_or_default()
+                        .to_string_lossy()
+                        .to_string();
                     FileInfo {
-                        path: fp.to_string_lossy().to_string(),
+                        path: file_path.to_string_lossy().to_string(),
                         name,
-                        size,
-                        hash: format!("size_{}", size), // ダミーハッシュ
+                        size: *file_size,
+                        hash: None,
                         extension,
                     }
                 })
                 .collect();
 
             duplicate_groups.push(DuplicateGroup {
-                hash: format!("size_{}", size),
-                size,
+                hash: None,
+                size: min_size,
+                min_size,
+                max_size,
+                max_size_delta: max_size - min_size,
+                comparison_type: if size_tolerance_bytes == 0 {
+                    "size".to_string()
+                } else {
+                    "size_tolerance".to_string()
+                },
                 files: file_infos,
             });
         }
     } else {
-        // ステージ3: strictモードの場合は、SHA-256ハッシュで厳密に最終判定
+        // strictモード: 同一サイズ候補をSHA-256ハッシュで厳密に最終判定
+        let mut size_groups: HashMap<u64, Vec<PathBuf>> = HashMap::new();
+        for (size, file_path) in &file_sizes {
+            size_groups
+                .entry(*size)
+                .or_default()
+                .push(file_path.clone());
+        }
+
+        // 同サイズのファイルが2つ以上あるグループのみ残す
+        let candidates: Vec<(u64, Vec<PathBuf>)> = size_groups
+            .into_iter()
+            .filter(|(_, files)| files.len() >= 2)
+            .collect();
+
         for (size, files) in candidates {
             let mut hash_groups: HashMap<String, Vec<PathBuf>> = HashMap::new();
 
@@ -124,21 +200,33 @@ pub fn scan_for_duplicates(folder_path: &str, mode: &str, recursive: bool) -> Re
                     let file_infos: Vec<FileInfo> = matched_files
                         .iter()
                         .map(|fp| {
-                            let name = fp.file_name().unwrap_or_default().to_string_lossy().to_string();
-                            let extension = fp.extension().unwrap_or_default().to_string_lossy().to_string();
+                            let name = fp
+                                .file_name()
+                                .unwrap_or_default()
+                                .to_string_lossy()
+                                .to_string();
+                            let extension = fp
+                                .extension()
+                                .unwrap_or_default()
+                                .to_string_lossy()
+                                .to_string();
                             FileInfo {
                                 path: fp.to_string_lossy().to_string(),
                                 name,
                                 size,
-                                hash: hash.clone(),
+                                hash: Some(hash.clone()),
                                 extension,
                             }
                         })
                         .collect();
 
                     duplicate_groups.push(DuplicateGroup {
-                        hash: hash.clone(),
+                        hash: Some(hash.clone()),
                         size,
+                        min_size: size,
+                        max_size: size,
+                        max_size_delta: 0,
+                        comparison_type: "sha256".to_string(),
                         files: file_infos,
                     });
                 }
@@ -147,7 +235,11 @@ pub fn scan_for_duplicates(folder_path: &str, mode: &str, recursive: bool) -> Re
     }
 
     // サイズの大きい順にソート
-    duplicate_groups.sort_by(|a, b| b.size.cmp(&a.size));
+    duplicate_groups.sort_by(|a, b| {
+        b.max_size
+            .cmp(&a.max_size)
+            .then_with(|| a.min_size.cmp(&b.min_size))
+    });
 
     Ok(duplicate_groups)
 }
@@ -179,8 +271,8 @@ fn extract_thumbnail_windows(file_path: &str, max_size: i32) -> Result<String, S
     use windows::core::{Interface, PCWSTR};
     use windows::Win32::Foundation::SIZE;
     use windows::Win32::Graphics::Gdi::{
-        DeleteObject, GetDIBits, GetDC, ReleaseDC, GetObjectW, BITMAP, BITMAPINFO, BITMAPINFOHEADER,
-        BI_RGB, DIB_RGB_COLORS, RGBQUAD,
+        DeleteObject, GetDC, GetDIBits, GetObjectW, ReleaseDC, BITMAP, BITMAPINFO,
+        BITMAPINFOHEADER, BI_RGB, DIB_RGB_COLORS, RGBQUAD,
     };
     use windows::Win32::System::Com::{
         CoInitializeEx, COINIT_APARTMENTTHREADED, COINIT_DISABLE_OLE1DDE,
@@ -334,7 +426,8 @@ pub fn get_preview(file_path: &str) -> Result<FilePreview, String> {
                 file_path: file_path.to_string(),
             })
         }
-        "mp4" | "webm" | "ogg" | "mov" | "avi" | "mkv" | "wmv" | "flv" | "m4v" | "m2ts" | "mts" | "3gp" => {
+        "mp4" | "webm" | "ogg" | "mov" | "avi" | "mkv" | "wmv" | "flv" | "m4v" | "m2ts" | "mts"
+        | "3gp" => {
             // Windows APIでサムネイルを取得
             match extract_thumbnail_windows(file_path, 400) {
                 Ok(thumb_data_url) => Ok(FilePreview {
@@ -460,7 +553,7 @@ mod tests {
         f5.write_all(b"Size identical, but...B").unwrap(); // 23 bytes
 
         // スキャン実行 (strict mode, recursive false)
-        let groups = scan_for_duplicates(test_dir, "strict", false).unwrap();
+        let groups = scan_for_duplicates(test_dir, "strict", false, 0).unwrap();
 
         // クリーンアップ
         let _ = fs::remove_dir_all(test_dir);
@@ -480,6 +573,61 @@ mod tests {
         assert!(paths.contains(&file1.to_string_lossy().to_string()));
         assert!(paths.contains(&file2.to_string_lossy().to_string()));
         assert!(!paths.contains(&file4.to_string_lossy().to_string()));
+    }
+
+    #[test]
+    fn test_size_tolerance_grouping() {
+        let file_sizes = vec![
+            (100, PathBuf::from("a.bin")),
+            (900, PathBuf::from("b.bin")),
+            (1_500, PathBuf::from("c.bin")),
+            (4_000, PathBuf::from("d.bin")),
+            (4_900, PathBuf::from("e.bin")),
+        ];
+
+        let groups = group_files_by_size_tolerance(&file_sizes, 1_024);
+
+        assert_eq!(groups.len(), 2);
+        assert_eq!(groups[0].0, 100);
+        assert_eq!(groups[0].1, 900);
+        assert_eq!(groups[0].2.len(), 2);
+        assert_eq!(groups[1].0, 4_000);
+        assert_eq!(groups[1].1, 4_900);
+        assert_eq!(groups[1].2.len(), 2);
+    }
+
+    #[test]
+    fn test_size_only_scan_with_tolerance() {
+        let test_dir = "test_size_tolerance_dir";
+        let _ = fs::remove_dir_all(test_dir);
+        fs::create_dir(test_dir).unwrap();
+
+        let file1 = PathBuf::from(test_dir).join("file1.bin");
+        let file2 = PathBuf::from(test_dir).join("file2.bin");
+        let file3 = PathBuf::from(test_dir).join("file3.bin");
+
+        File::create(&file1)
+            .unwrap()
+            .write_all(&vec![b'a'; 1_000])
+            .unwrap();
+        File::create(&file2)
+            .unwrap()
+            .write_all(&vec![b'b'; 1_900])
+            .unwrap();
+        File::create(&file3)
+            .unwrap()
+            .write_all(&vec![b'c'; 3_000])
+            .unwrap();
+
+        let groups = scan_for_duplicates(test_dir, "size_only", false, 1_024).unwrap();
+
+        let _ = fs::remove_dir_all(test_dir);
+
+        assert_eq!(groups.len(), 1);
+        assert_eq!(groups[0].comparison_type, "size_tolerance");
+        assert_eq!(groups[0].max_size_delta, 900);
+        assert!(groups[0].hash.is_none());
+        assert_eq!(groups[0].files.len(), 2);
     }
 
     #[test]

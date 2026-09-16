@@ -3,8 +3,13 @@ use tauri::command;
 
 /// フォルダをスキャンして重複グループを返す
 #[command]
-pub fn scan_folder(path: String, mode: String, recursive: bool) -> Result<Vec<scanner::DuplicateGroup>, String> {
-    scanner::scan_for_duplicates(&path, &mode, recursive)
+pub fn scan_folder(
+    path: String,
+    mode: String,
+    recursive: bool,
+    size_tolerance_bytes: u64,
+) -> Result<Vec<scanner::DuplicateGroup>, String> {
+    scanner::scan_for_duplicates(&path, &mode, recursive, size_tolerance_bytes)
 }
 
 /// ファイルのプレビューを取得

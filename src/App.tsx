@@ -11,13 +11,17 @@ interface FileInfo {
   path: string;
   name: string;
   size: number;
-  hash: string;
+  hash: string | null;
   extension: string;
 }
 
 interface DuplicateGroup {
-  hash: string;
+  hash: string | null;
   size: number;
+  min_size: number;
+  max_size: number;
+  max_size_delta: number;
+  comparison_type: "sha256" | "size" | "size_tolerance";
   files: FileInfo[];
 }
 
@@ -31,6 +35,15 @@ interface DeleteResult {
   deleted: string[];
   failed: { path: string; error: string }[];
 }
+
+interface ScanSettings {
+  mode: "strict" | "size_only";
+  recursive: boolean;
+  sizeToleranceBytes: number;
+}
+
+const MAX_SIZE_TOLERANCE_KIB = 1024;
+const DEFAULT_SIZE_TOLERANCE_KIB = 1;
 
 function formatSize(bytes: number): string {
   if (bytes === 0) return "0 B";
@@ -51,6 +64,23 @@ function App() {
   const [appVersion, setAppVersion] = useState("");
   const [scanMode, setScanMode] = useState<"strict" | "size_only">("strict");
   const [recursive, setRecursive] = useState(false);
+  const [sizeToleranceKiB, setSizeToleranceKiB] = useState(DEFAULT_SIZE_TOLERANCE_KIB);
+  const [lastScanSettings, setLastScanSettings] = useState<ScanSettings | null>(null);
+
+  const sizeToleranceBytes = Math.round(sizeToleranceKiB * 1024);
+  const effectiveSizeToleranceBytes = scanMode === "size_only" ? sizeToleranceBytes : 0;
+  const scanSettingsDirty =
+    scanComplete &&
+    lastScanSettings !== null &&
+    (lastScanSettings.mode !== scanMode ||
+      lastScanSettings.recursive !== recursive ||
+      lastScanSettings.sizeToleranceBytes !== effectiveSizeToleranceBytes);
+
+  const clearSelectionAfterScanSettingChange = () => {
+    setSelectedFiles(new Set());
+    setPreview(null);
+    setShowConfirm(false);
+  };
 
   // 初期化時にバージョン取得
   useEffect(() => {
@@ -103,15 +133,39 @@ function App() {
     if (selected) {
       setFolderPath(selected as string);
       setScanComplete(false);
+      setLastScanSettings(null);
       setGroups([]);
       setSelectedFiles(new Set());
       setPreview(null);
     }
   };
 
+  const changeScanMode = (mode: "strict" | "size_only") => {
+    setScanMode(mode);
+    clearSelectionAfterScanSettingChange();
+  };
+
+  const changeRecursive = (value: boolean) => {
+    setRecursive(value);
+    clearSelectionAfterScanSettingChange();
+  };
+
+  const changeSizeToleranceKiB = (value: number) => {
+    const normalized = Number.isFinite(value)
+      ? Math.min(Math.max(value, 0), MAX_SIZE_TOLERANCE_KIB)
+      : 0;
+    setSizeToleranceKiB(normalized);
+    clearSelectionAfterScanSettingChange();
+  };
+
   // スキャン実行
   const startScan = async () => {
     if (!folderPath) return;
+    const settingsAtStart: ScanSettings = {
+      mode: scanMode,
+      recursive,
+      sizeToleranceBytes: effectiveSizeToleranceBytes,
+    };
     setIsScanning(true);
     setScanComplete(false);
     setGroups([]);
@@ -120,10 +174,12 @@ function App() {
     try {
       const result = await invoke<DuplicateGroup[]>("scan_folder", {
         path: folderPath,
-        mode: scanMode,
-        recursive: recursive
+        mode: settingsAtStart.mode,
+        recursive: settingsAtStart.recursive,
+        size_tolerance_bytes: settingsAtStart.sizeToleranceBytes,
       });
       setGroups(result);
+      setLastScanSettings(settingsAtStart);
       setScanComplete(true);
       if (result.length === 0) {
         showToast("重複ファイルは見つかりませんでした");
@@ -200,6 +256,10 @@ function App() {
 
   // 削除実行
   const executeDelete = async () => {
+    if (scanSettingsDirty) {
+      showToast("スキャン設定が変更されています。再スキャンしてください");
+      return;
+    }
     setShowConfirm(false);
     const paths = Array.from(selectedFiles);
     try {
@@ -240,15 +300,20 @@ function App() {
           <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>v{appVersion}</span>
         </div>
         <div className="header-actions">
-          <button className="btn btn-ghost" onClick={checkForUpdates} style={{ fontSize: "11px", padding: "4px 8px" }}>
+          <button className="btn btn-ghost" onClick={checkForUpdates} disabled={isScanning} style={{ fontSize: "11px", padding: "4px 8px" }}>
             🔄 更新を確認
           </button>
-          {scanComplete && groups.length > 0 && (
+          {scanSettingsDirty && (
+            <span className="status-badge warning">
+              設定変更後は再スキャン
+            </span>
+          )}
+          {scanComplete && !scanSettingsDirty && groups.length > 0 && (
             <span className="status-badge warning">
               {groups.length}グループ・{totalDuplicateFiles}ファイル
             </span>
           )}
-          {scanComplete && groups.length === 0 && (
+          {scanComplete && !scanSettingsDirty && groups.length === 0 && (
             <span className="status-badge success">✓ 重複なし</span>
           )}
         </div>
@@ -257,7 +322,7 @@ function App() {
       {/* Folder Picker & Options */}
       <div className="folder-picker">
         <div className="picker-container" style={{ display: "flex", gap: "10px", width: "100%", alignItems: "center" }}>
-          <button className="btn btn-ghost" onClick={pickFolder} style={{ flexShrink: 0 }}>
+          <button className="btn btn-ghost" onClick={pickFolder} disabled={isScanning} style={{ flexShrink: 0 }}>
             📁 フォルダ選択
           </button>
           <div className="folder-path" style={{ flexGrow: 1, textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap" }}>
@@ -267,7 +332,8 @@ function App() {
           <select
             className="select-input"
             value={scanMode}
-            onChange={(e) => setScanMode(e.target.value as "strict" | "size_only")}
+            onChange={(e) => changeScanMode(e.target.value as "strict" | "size_only")}
+            disabled={isScanning}
             title="検出モード"
             style={{ padding: "8px", borderRadius: "4px", border: "1px solid var(--border-color)", background: "var(--bg-secondary)", color: "var(--text-primary)" }}
           >
@@ -275,11 +341,28 @@ function App() {
             <option value="size_only">サイズのみ比較 (高速)</option>
           </select>
 
+          {scanMode === "size_only" && (
+            <label className="size-tolerance-control" title="2ファイル間で許容する最大サイズ差">
+              許容差
+              <input
+                type="number"
+                min="0"
+                max={MAX_SIZE_TOLERANCE_KIB}
+                step="0.1"
+                value={sizeToleranceKiB}
+                onChange={(e) => changeSizeToleranceKiB(e.target.valueAsNumber)}
+                disabled={isScanning}
+                aria-label="サイズ許容差（KiB）"
+              />
+              KiB
+            </label>
+          )}
+
           <label style={{ display: "flex", alignItems: "center", gap: "5px", cursor: "pointer", fontSize: "14px", flexShrink: 0, paddingRight: "8px" }}>
             <input
               type="checkbox"
               checked={recursive}
-              onChange={(e) => setRecursive(e.target.checked)}
+              onChange={(e) => changeRecursive(e.target.checked)}
               disabled={isScanning}
             />
             サブフォルダも検索する
@@ -318,7 +401,18 @@ function App() {
             </div>
           )}
 
-          {!isScanning && scanComplete && groups.length === 0 && (
+          {!isScanning && scanSettingsDirty && groups.length === 0 && (
+            <div className="empty-state">
+              <div className="empty-icon">⚙️</div>
+              <div className="empty-text">
+                スキャン設定が変更されました
+                <br />
+                現在の設定で再スキャンしてください
+              </div>
+            </div>
+          )}
+
+          {!isScanning && scanComplete && !scanSettingsDirty && groups.length === 0 && (
             <div className="empty-state">
               <div className="empty-icon">✅</div>
               <div className="empty-text">
@@ -328,17 +422,30 @@ function App() {
           )}
 
           {groups.map((group, gi) => (
-            <div key={group.hash + gi} className="duplicate-group">
+            <div
+              key={`${group.comparison_type}-${group.hash ?? `${group.min_size}-${group.max_size}`}-${gi}`}
+              className="duplicate-group"
+            >
               <div className="group-header">
                 <div className="group-info">
                   <span className="group-badge">{group.files.length}件</span>
                   <span className="group-size">
-                    各 {formatSize(group.size)}
+                    {group.min_size === group.max_size
+                      ? `各 ${formatSize(group.min_size)}`
+                      : `${formatSize(group.min_size)}〜${formatSize(group.max_size)}`}
                   </span>
                 </div>
-                <span className="group-size" title={group.hash}>
-                  SHA-256: {group.hash.substring(0, 12)}...
-                </span>
+                {group.comparison_type === "sha256" && group.hash ? (
+                  <span className="group-size" title={group.hash}>
+                    SHA-256: {group.hash.substring(0, 12)}...
+                  </span>
+                ) : group.comparison_type === "size" ? (
+                  <span className="group-size">サイズ一致</span>
+                ) : (
+                  <span className="group-size">
+                    サイズ差: 最大 {formatSize(group.max_size_delta)}
+                  </span>
+                )}
               </div>
               {group.files.map((file) => (
                 <div
@@ -451,7 +558,12 @@ function App() {
             <button className="btn btn-ghost" onClick={selectAll}>
               全選択
             </button>
-            <button className="btn btn-ghost" onClick={selectAllButOne}>
+            <button
+              className="btn btn-ghost"
+              onClick={selectAllButOne}
+              disabled={scanMode === "size_only" || scanSettingsDirty}
+              title={scanMode === "size_only" ? "サイズのみ比較では安全のため使用できません" : undefined}
+            >
               サイズ最大を残して選択
             </button>
             <button className="btn btn-ghost" onClick={deselectAll}>
@@ -459,10 +571,11 @@ function App() {
             </button>
             <button
               className="btn btn-danger"
-              disabled={selectedFiles.size === 0}
+              disabled={selectedFiles.size === 0 || scanSettingsDirty}
               onClick={() => setShowConfirm(true)}
+              title={scanSettingsDirty ? "現在の設定で再スキャンしてください" : undefined}
             >
-              🗑️ 選択ファイルを削除
+              🗑️ {scanMode === "size_only" ? "候補ファイルを削除" : "選択ファイルを削除"}
             </button>
           </div>
         </div>
@@ -477,6 +590,12 @@ function App() {
               選択された <strong>{selectedFiles.size}件</strong>{" "}
               のファイルをゴミ箱に移動します。
               <br />
+              {scanMode === "size_only" && (
+                <>
+                  サイズのみの候補であり、内容が同一とは限りません。
+                  <br />
+                </>
+              )}
               この操作はゴミ箱から復元できます。続行しますか？
             </p>
             <div className="dialog-actions">
