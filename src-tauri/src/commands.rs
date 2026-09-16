@@ -8,8 +8,15 @@ pub fn scan_folder(
     mode: String,
     recursive: bool,
     size_tolerance_bytes: u64,
+    highlight_similar_thumbnails: bool,
 ) -> Result<Vec<scanner::DuplicateGroup>, String> {
-    scanner::scan_for_duplicates(&path, &mode, recursive, size_tolerance_bytes)
+    scanner::scan_for_duplicates(
+        &path,
+        &mode,
+        recursive,
+        size_tolerance_bytes,
+        highlight_similar_thumbnails,
+    )
 }
 
 /// ファイルのプレビューを取得

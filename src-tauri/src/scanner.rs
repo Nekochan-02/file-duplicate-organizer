@@ -6,6 +6,20 @@ use std::io::Read;
 use std::path::{Path, PathBuf};
 
 const MAX_SIZE_TOLERANCE_BYTES: u64 = 1024 * 1024;
+const THUMBNAIL_REQUEST_SIZE: i32 = 256;
+const PHASH_INPUT_SIZE: usize = 32;
+const PHASH_LOW_FREQUENCY_SIZE: usize = 8;
+const PHASH_MAX_HAMMING_DISTANCE: u32 = 8;
+
+/// サムネイル類似判定の状態
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SimilarityStatus {
+    NotRequested,
+    NotSimilar,
+    Similar,
+    Unavailable,
+}
 
 /// 個別ファイルの情報
 #[derive(Debug, Clone, Serialize)]
@@ -15,6 +29,8 @@ pub struct FileInfo {
     pub size: u64,
     pub hash: Option<String>,
     pub extension: String,
+    pub similar_set_id: Option<u32>,
+    pub similarity_status: SimilarityStatus,
 }
 
 /// 重複または近似サイズ候補のグループ
@@ -88,6 +104,7 @@ pub fn scan_for_duplicates(
     mode: &str,
     recursive: bool,
     size_tolerance_bytes: u64,
+    highlight_similar_thumbnails: bool,
 ) -> Result<Vec<DuplicateGroup>, String> {
     let path = Path::new(folder_path);
     if !path.exists() {
@@ -148,6 +165,8 @@ pub fn scan_for_duplicates(
                         size: *file_size,
                         hash: None,
                         extension,
+                        similar_set_id: None,
+                        similarity_status: SimilarityStatus::NotRequested,
                     }
                 })
                 .collect();
@@ -216,6 +235,8 @@ pub fn scan_for_duplicates(
                                 size,
                                 hash: Some(hash.clone()),
                                 extension,
+                                similar_set_id: None,
+                                similarity_status: SimilarityStatus::NotRequested,
                             }
                         })
                         .collect();
@@ -231,6 +252,12 @@ pub fn scan_for_duplicates(
                     });
                 }
             }
+        }
+    }
+
+    if mode == "size_only" && highlight_similar_thumbnails {
+        for group in &mut duplicate_groups {
+            analyze_similarity_group(group);
         }
     }
 
@@ -264,8 +291,75 @@ fn calculate_hash(path: &Path) -> Result<String, String> {
     Ok(format!("{:x}", result))
 }
 
+#[derive(Debug, Clone, PartialEq)]
+struct ThumbnailBitmap {
+    width: usize,
+    height: usize,
+    /// Top-down BGRA pixels, four bytes per pixel.
+    pixels: Vec<u8>,
+}
+
+impl ThumbnailBitmap {
+    fn to_bmp_data_url(&self) -> Result<String, String> {
+        if self.width == 0 || self.height == 0 {
+            return Err("Invalid bitmap dimensions".to_string());
+        }
+
+        let row_size = self
+            .width
+            .checked_mul(4)
+            .ok_or_else(|| "Bitmap row is too large".to_string())?;
+        let expected_size = row_size
+            .checked_mul(self.height)
+            .ok_or_else(|| "Bitmap is too large".to_string())?;
+        if self.pixels.len() != expected_size {
+            return Err("Invalid bitmap pixel data".to_string());
+        }
+
+        let file_header_size = 14u32;
+        let info_header_size = 40u32;
+        let image_data_size = expected_size as u32;
+        let total_file_size = file_header_size + info_header_size + image_data_size;
+        let bf_off_bits = file_header_size + info_header_size;
+
+        let mut bmp_bytes = Vec::with_capacity(total_file_size as usize);
+
+        // BITMAPFILEHEADER
+        bmp_bytes.extend_from_slice(&0x4D42u16.to_le_bytes());
+        bmp_bytes.extend_from_slice(&total_file_size.to_le_bytes());
+        bmp_bytes.extend_from_slice(&0u16.to_le_bytes());
+        bmp_bytes.extend_from_slice(&0u16.to_le_bytes());
+        bmp_bytes.extend_from_slice(&bf_off_bits.to_le_bytes());
+
+        // BITMAPINFOHEADER
+        bmp_bytes.extend_from_slice(&40u32.to_le_bytes());
+        bmp_bytes.extend_from_slice(&(self.width as i32).to_le_bytes());
+        bmp_bytes.extend_from_slice(&(self.height as i32).to_le_bytes());
+        bmp_bytes.extend_from_slice(&1u16.to_le_bytes());
+        bmp_bytes.extend_from_slice(&32u16.to_le_bytes());
+        bmp_bytes.extend_from_slice(&0u32.to_le_bytes());
+        bmp_bytes.extend_from_slice(&image_data_size.to_le_bytes());
+        bmp_bytes.extend_from_slice(&0i32.to_le_bytes());
+        bmp_bytes.extend_from_slice(&0i32.to_le_bytes());
+        bmp_bytes.extend_from_slice(&0u32.to_le_bytes());
+        bmp_bytes.extend_from_slice(&0u32.to_le_bytes());
+
+        // A positive BMP height uses bottom-up row order.
+        for row in self.pixels.chunks_exact(row_size).rev() {
+            bmp_bytes.extend_from_slice(row);
+        }
+
+        let base64_str =
+            base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &bmp_bytes);
+        Ok(format!("data:image/bmp;base64,{}", base64_str))
+    }
+}
+
 #[cfg(target_os = "windows")]
-fn extract_thumbnail_windows(file_path: &str, max_size: i32) -> Result<String, String> {
+fn extract_thumbnail_bitmap_windows(
+    file_path: &str,
+    max_size: i32,
+) -> Result<ThumbnailBitmap, String> {
     use std::ffi::OsStr;
     use std::os::windows::ffi::OsStrExt;
     use windows::core::{Interface, PCWSTR};
@@ -279,7 +373,7 @@ fn extract_thumbnail_windows(file_path: &str, max_size: i32) -> Result<String, S
     };
     use windows::Win32::UI::Shell::{
         IShellItem, IShellItemImageFactory, SHCreateItemFromParsingName, SIIGBF_BIGGERSIZEOK,
-        SIIGBF_RESIZETOFIT,
+        SIIGBF_RESIZETOFIT, SIIGBF_THUMBNAILONLY,
     };
 
     unsafe {
@@ -301,19 +395,26 @@ fn extract_thumbnail_windows(file_path: &str, max_size: i32) -> Result<String, S
             cx: max_size,
             cy: max_size,
         };
-        let flags = SIIGBF_RESIZETOFIT | SIIGBF_BIGGERSIZEOK;
+        // Do not allow Windows to return a file-type icon as a thumbnail.
+        let flags = SIIGBF_RESIZETOFIT | SIIGBF_BIGGERSIZEOK | SIIGBF_THUMBNAILONLY;
         factory
             .GetImage(size, flags)
             .map_err(|e| format!("GetImage failed: {}", e))?
     };
 
     let mut bm = BITMAP::default();
-    unsafe {
+    let object_size = unsafe {
         GetObjectW(
             hbitmap,
             std::mem::size_of::<BITMAP>() as i32,
             Some(&mut bm as *mut _ as *mut _),
-        );
+        )
+    };
+    if object_size == 0 {
+        unsafe {
+            let _ = DeleteObject(hbitmap);
+        }
+        return Err("GetObjectW failed".to_string());
     }
 
     let width = bm.bmWidth;
@@ -346,9 +447,9 @@ fn extract_thumbnail_windows(file_path: &str, max_size: i32) -> Result<String, S
     let image_data_size = (width * height * 4) as usize;
     let mut pixel_data = vec![0u8; image_data_size];
 
-    unsafe {
+    let scan_lines = unsafe {
         let hdc = GetDC(None);
-        GetDIBits(
+        let scan_lines = GetDIBits(
             hdc,
             hbitmap,
             0,
@@ -359,46 +460,286 @@ fn extract_thumbnail_windows(file_path: &str, max_size: i32) -> Result<String, S
         );
         ReleaseDC(None, hdc);
         let _ = DeleteObject(hbitmap);
+        scan_lines
+    };
+    if scan_lines == 0 {
+        return Err("GetDIBits failed".to_string());
     }
 
-    // BMPファイル構造の作成
-    let file_header_size = 14u32;
-    let info_header_size = 40u32;
-    let total_file_size = file_header_size + info_header_size + (image_data_size as u32);
-    let bf_off_bits = file_header_size + info_header_size;
+    // GetDIBits with a positive height returns bottom-up rows. Normalize the
+    // shared representation to top-down so rotation and hashing are stable.
+    let row_size = width as usize * 4;
+    for top in 0..(height as usize / 2) {
+        let bottom = height as usize - 1 - top;
+        let top_start = top * row_size;
+        let bottom_start = bottom * row_size;
+        for offset in 0..row_size {
+            pixel_data.swap(top_start + offset, bottom_start + offset);
+        }
+    }
 
-    let mut bmp_bytes = Vec::with_capacity(total_file_size as usize);
-
-    // BITMAPFILEHEADER
-    bmp_bytes.extend_from_slice(&0x4D42u16.to_le_bytes()); // 'BM'
-    bmp_bytes.extend_from_slice(&total_file_size.to_le_bytes());
-    bmp_bytes.extend_from_slice(&0u16.to_le_bytes()); // reserved1
-    bmp_bytes.extend_from_slice(&0u16.to_le_bytes()); // reserved2
-    bmp_bytes.extend_from_slice(&bf_off_bits.to_le_bytes());
-
-    // BITMAPINFOHEADER
-    bmp_bytes.extend_from_slice(&40u32.to_le_bytes()); // biSize
-    bmp_bytes.extend_from_slice(&(width as i32).to_le_bytes()); // biWidth
-    bmp_bytes.extend_from_slice(&(height as i32).to_le_bytes()); // biHeight
-    bmp_bytes.extend_from_slice(&1u16.to_le_bytes()); // biPlanes
-    bmp_bytes.extend_from_slice(&32u16.to_le_bytes()); // biBitCount
-    bmp_bytes.extend_from_slice(&0u32.to_le_bytes()); // biCompression (BI_RGB)
-    bmp_bytes.extend_from_slice(&(image_data_size as u32).to_le_bytes()); // biSizeImage
-    bmp_bytes.extend_from_slice(&0i32.to_le_bytes()); // biXPelsPerMeter
-    bmp_bytes.extend_from_slice(&0i32.to_le_bytes()); // biYPelsPerMeter
-    bmp_bytes.extend_from_slice(&0u32.to_le_bytes()); // biClrUsed
-    bmp_bytes.extend_from_slice(&0u32.to_le_bytes()); // biClrImportant
-
-    // ピクセルデータ (BGRA)
-    bmp_bytes.extend_from_slice(&pixel_data);
-
-    let base64_str = base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &bmp_bytes);
-    Ok(format!("data:image/bmp;base64,{}", base64_str))
+    Ok(ThumbnailBitmap {
+        width: width as usize,
+        height: height as usize,
+        pixels: pixel_data,
+    })
 }
 
 #[cfg(not(target_os = "windows"))]
-fn extract_thumbnail_windows(_file_path: &str, _max_size: i32) -> Result<String, String> {
+fn extract_thumbnail_bitmap_windows(
+    _file_path: &str,
+    _max_size: i32,
+) -> Result<ThumbnailBitmap, String> {
     Err("Thumbnail extraction is only supported on Windows".to_string())
+}
+
+fn extract_thumbnail_windows(file_path: &str, max_size: i32) -> Result<String, String> {
+    extract_thumbnail_bitmap_windows(file_path, max_size)?.to_bmp_data_url()
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct ThumbnailHashes {
+    rotations: [u64; 4],
+}
+
+/// 1ファイルのサムネイルを4方向のpHashへ変換する。
+fn hash_thumbnail_rotations(bitmap: &ThumbnailBitmap) -> Result<ThumbnailHashes, String> {
+    if bitmap.width == 0
+        || bitmap.height == 0
+        || bitmap.pixels.len() != bitmap.width * bitmap.height * 4
+    {
+        return Err("Invalid thumbnail bitmap".to_string());
+    }
+
+    let mut rotations = [0u64; 4];
+    for (turns, hash) in rotations.iter_mut().enumerate() {
+        let rotated = rotate_thumbnail(bitmap, turns);
+        *hash = calculate_phash(&rotated);
+    }
+
+    Ok(ThumbnailHashes { rotations })
+}
+
+/// 縮小前のピクセルをメモリ上で90度単位に回転する。
+fn rotate_thumbnail(bitmap: &ThumbnailBitmap, turns: usize) -> ThumbnailBitmap {
+    let turns = turns % 4;
+    if turns == 0 {
+        return bitmap.clone();
+    }
+
+    let (destination_width, destination_height) = if turns % 2 == 0 {
+        (bitmap.width, bitmap.height)
+    } else {
+        (bitmap.height, bitmap.width)
+    };
+    let mut pixels = vec![0u8; destination_width * destination_height * 4];
+
+    for source_y in 0..bitmap.height {
+        for source_x in 0..bitmap.width {
+            let (destination_x, destination_y) = match turns {
+                1 => (bitmap.height - 1 - source_y, source_x),
+                2 => (bitmap.width - 1 - source_x, bitmap.height - 1 - source_y),
+                3 => (source_y, bitmap.width - 1 - source_x),
+                _ => unreachable!(),
+            };
+            let source_index = (source_y * bitmap.width + source_x) * 4;
+            let destination_index = (destination_y * destination_width + destination_x) * 4;
+            pixels[destination_index..destination_index + 4]
+                .copy_from_slice(&bitmap.pixels[source_index..source_index + 4]);
+        }
+    }
+
+    ThumbnailBitmap {
+        width: destination_width,
+        height: destination_height,
+        pixels,
+    }
+}
+
+/// 64bit pHash。DCTの低周波8x8係数を使い、DC成分を除く中央値で二値化する。
+fn calculate_phash(bitmap: &ThumbnailBitmap) -> u64 {
+    let grayscale = bitmap
+        .pixels
+        .chunks_exact(4)
+        .map(|pixel| {
+            let blue = pixel[0] as f64;
+            let green = pixel[1] as f64;
+            let red = pixel[2] as f64;
+            let alpha = pixel[3] as f64 / 255.0;
+            let luminance = 0.114 * blue + 0.587 * green + 0.299 * red;
+            luminance * alpha + 255.0 * (1.0 - alpha)
+        })
+        .collect::<Vec<_>>();
+
+    let normalized = resize_grayscale(&grayscale, bitmap.width, bitmap.height, PHASH_INPUT_SIZE);
+    let mut coefficients = [0.0f64; PHASH_LOW_FREQUENCY_SIZE * PHASH_LOW_FREQUENCY_SIZE];
+    let input_size = PHASH_INPUT_SIZE as f64;
+    let pi = std::f64::consts::PI;
+
+    for v in 0..PHASH_LOW_FREQUENCY_SIZE {
+        for u in 0..PHASH_LOW_FREQUENCY_SIZE {
+            let scale_u = if u == 0 {
+                (1.0 / input_size).sqrt()
+            } else {
+                (2.0 / input_size).sqrt()
+            };
+            let scale_v = if v == 0 {
+                (1.0 / input_size).sqrt()
+            } else {
+                (2.0 / input_size).sqrt()
+            };
+            let mut sum = 0.0;
+
+            for y in 0..PHASH_INPUT_SIZE {
+                let cosine_y = (((2 * y + 1) as f64 * v as f64 * pi) / (2.0 * input_size)).cos();
+                for x in 0..PHASH_INPUT_SIZE {
+                    let cosine_x =
+                        (((2 * x + 1) as f64 * u as f64 * pi) / (2.0 * input_size)).cos();
+                    sum += normalized[y * PHASH_INPUT_SIZE + x] * cosine_x * cosine_y;
+                }
+            }
+
+            coefficients[v * PHASH_LOW_FREQUENCY_SIZE + u] = sum * scale_u * scale_v;
+        }
+    }
+
+    let mut median_values = coefficients[1..].to_vec();
+    median_values.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    let median = median_values[median_values.len() / 2];
+
+    coefficients
+        .iter()
+        .enumerate()
+        .fold(0u64, |hash, (index, coefficient)| {
+            if *coefficient > median {
+                hash | (1u64 << index)
+            } else {
+                hash
+            }
+        })
+}
+
+/// グレースケール画像を正方形へbilinear補間で縮小する。
+fn resize_grayscale(
+    source: &[f64],
+    source_width: usize,
+    source_height: usize,
+    destination_size: usize,
+) -> Vec<f64> {
+    let mut destination = vec![0.0; destination_size * destination_size];
+    let width_scale = source_width as f64 / destination_size as f64;
+    let height_scale = source_height as f64 / destination_size as f64;
+
+    for destination_y in 0..destination_size {
+        let source_y = ((destination_y as f64 + 0.5) * height_scale - 0.5)
+            .max(0.0)
+            .min((source_height - 1) as f64);
+        let y0 = source_y.floor() as usize;
+        let y1 = (y0 + 1).min(source_height - 1);
+        let y_weight = source_y - y0 as f64;
+
+        for destination_x in 0..destination_size {
+            let source_x = ((destination_x as f64 + 0.5) * width_scale - 0.5)
+                .max(0.0)
+                .min((source_width - 1) as f64);
+            let x0 = source_x.floor() as usize;
+            let x1 = (x0 + 1).min(source_width - 1);
+            let x_weight = source_x - x0 as f64;
+
+            let top_left = source[y0 * source_width + x0];
+            let top_right = source[y0 * source_width + x1];
+            let bottom_left = source[y1 * source_width + x0];
+            let bottom_right = source[y1 * source_width + x1];
+            let top = top_left + (top_right - top_left) * x_weight;
+            let bottom = bottom_left + (bottom_right - bottom_left) * x_weight;
+            destination[destination_y * destination_size + destination_x] =
+                top + (bottom - top) * y_weight;
+        }
+    }
+
+    destination
+}
+
+fn min_rotation_distance(left: ThumbnailHashes, right: ThumbnailHashes) -> u32 {
+    left.rotations
+        .iter()
+        .flat_map(|left_hash| {
+            right
+                .rotations
+                .iter()
+                .map(move |right_hash| (*left_hash ^ *right_hash).count_ones())
+        })
+        .min()
+        .unwrap_or(u32::MAX)
+}
+
+fn assign_similarity_sets(
+    group: &mut DuplicateGroup,
+    thumbnail_hashes: &[Option<ThumbnailHashes>],
+) {
+    let mut assigned = vec![false; group.files.len()];
+    let mut next_set_id = 1u32;
+
+    for seed in 0..group.files.len() {
+        if assigned[seed] || thumbnail_hashes[seed].is_none() {
+            continue;
+        }
+
+        assigned[seed] = true;
+        let mut members = vec![seed];
+
+        for candidate in (seed + 1)..group.files.len() {
+            if assigned[candidate] {
+                continue;
+            }
+            let Some(candidate_hashes) = thumbnail_hashes[candidate] else {
+                continue;
+            };
+            if members.iter().all(|member| {
+                min_rotation_distance(thumbnail_hashes[*member].unwrap(), candidate_hashes)
+                    <= PHASH_MAX_HAMMING_DISTANCE
+            }) {
+                assigned[candidate] = true;
+                members.push(candidate);
+            }
+        }
+
+        if members.len() >= 2 {
+            for member in members {
+                group.files[member].similar_set_id = Some(next_set_id);
+                group.files[member].similarity_status = SimilarityStatus::Similar;
+            }
+            next_set_id += 1;
+        }
+    }
+}
+
+fn analyze_similarity_group_with_provider<F>(group: &mut DuplicateGroup, mut provider: F)
+where
+    F: FnMut(&str) -> Result<ThumbnailBitmap, String>,
+{
+    let mut thumbnail_hashes = vec![None; group.files.len()];
+
+    for (index, file) in group.files.iter_mut().enumerate() {
+        file.similar_set_id = None;
+        match provider(&file.path).and_then(|bitmap| hash_thumbnail_rotations(&bitmap)) {
+            Ok(hashes) => {
+                file.similarity_status = SimilarityStatus::NotSimilar;
+                thumbnail_hashes[index] = Some(hashes);
+            }
+            Err(_) => {
+                file.similarity_status = SimilarityStatus::Unavailable;
+            }
+        }
+    }
+
+    assign_similarity_sets(group, &thumbnail_hashes);
+}
+
+fn analyze_similarity_group(group: &mut DuplicateGroup) {
+    analyze_similarity_group_with_provider(group, |file_path| {
+        extract_thumbnail_bitmap_windows(file_path, THUMBNAIL_REQUEST_SIZE)
+    });
 }
 
 /// ファイルのプレビューデータを取得
@@ -521,6 +862,205 @@ mod tests {
     use std::io::Write;
     use std::path::PathBuf;
 
+    fn test_group(paths: &[&str]) -> DuplicateGroup {
+        DuplicateGroup {
+            hash: None,
+            size: 1_000,
+            min_size: 1_000,
+            max_size: 1_000,
+            max_size_delta: 0,
+            comparison_type: "size_tolerance".to_string(),
+            files: paths
+                .iter()
+                .map(|path| FileInfo {
+                    path: (*path).to_string(),
+                    name: (*path).to_string(),
+                    size: 1_000,
+                    hash: None,
+                    extension: "bin".to_string(),
+                    similar_set_id: None,
+                    similarity_status: SimilarityStatus::NotRequested,
+                })
+                .collect(),
+        }
+    }
+
+    fn hashes(value: u64) -> ThumbnailHashes {
+        ThumbnailHashes {
+            rotations: [value; 4],
+        }
+    }
+
+    fn test_bitmap(pattern: u8) -> ThumbnailBitmap {
+        let width = 64;
+        let height = 48;
+        let mut pixels = Vec::with_capacity(width * height * 4);
+
+        for y in 0..height {
+            for x in 0..width {
+                let bright = match pattern {
+                    0 => ((x / 8) + (y / 8)) % 2 == 0,
+                    1 => (y / 6) % 2 == 0,
+                    _ => (x + y) % 3 == 0,
+                };
+                let value = if bright { 255 } else { 0 };
+                pixels.extend_from_slice(&[value, value, value, 255]);
+            }
+        }
+
+        ThumbnailBitmap {
+            width,
+            height,
+            pixels,
+        }
+    }
+
+    #[test]
+    fn test_phash_is_stable_for_identical_thumbnail() {
+        let bitmap = test_bitmap(0);
+        let left = hash_thumbnail_rotations(&bitmap).unwrap();
+        let right = hash_thumbnail_rotations(&bitmap).unwrap();
+
+        assert_eq!(left, right);
+        assert_eq!(min_rotation_distance(left, right), 0);
+    }
+
+    #[test]
+    fn test_phash_accepts_quarter_turn_rotations() {
+        let bitmap = test_bitmap(2);
+        let left = hash_thumbnail_rotations(&bitmap).unwrap();
+
+        for turns in 1..=3 {
+            let rotated = rotate_thumbnail(&bitmap, turns);
+            let right = hash_thumbnail_rotations(&rotated).unwrap();
+            assert!(
+                min_rotation_distance(left, right) <= PHASH_MAX_HAMMING_DISTANCE,
+                "rotation {} should remain similar",
+                turns * 90
+            );
+        }
+    }
+
+    #[test]
+    fn test_phash_rejects_distinct_thumbnail_pattern() {
+        let left = hash_thumbnail_rotations(&test_bitmap(0)).unwrap();
+        let right = hash_thumbnail_rotations(&test_bitmap(1)).unwrap();
+
+        assert!(min_rotation_distance(left, right) > PHASH_MAX_HAMMING_DISTANCE);
+    }
+
+    #[test]
+    fn test_similarity_sets_do_not_chain() {
+        let mut group = test_group(&["a", "b", "c"]);
+        for file in &mut group.files {
+            file.similarity_status = SimilarityStatus::NotSimilar;
+        }
+
+        // a-b is distance 1, b-c is distance 8, but a-c is distance 9.
+        let thumbnail_hashes = vec![Some(hashes(0)), Some(hashes(1)), Some(hashes(511))];
+        assign_similarity_sets(&mut group, &thumbnail_hashes);
+
+        assert_eq!(group.files[0].similar_set_id, Some(1));
+        assert_eq!(group.files[1].similar_set_id, Some(1));
+        assert_eq!(group.files[2].similar_set_id, None);
+        assert_eq!(
+            group.files[2].similarity_status,
+            SimilarityStatus::NotSimilar
+        );
+    }
+
+    #[test]
+    fn test_similarity_sets_support_multiple_sets() {
+        let mut group = test_group(&["a", "b", "c", "d", "e"]);
+        for file in &mut group.files {
+            file.similarity_status = SimilarityStatus::NotSimilar;
+        }
+
+        let thumbnail_hashes = vec![
+            Some(hashes(0)),
+            Some(hashes(1)),
+            Some(hashes(0x1FF << 20)),
+            Some(hashes((0x1FF << 20) | 1)),
+            Some(hashes(0x1FF << 40)),
+        ];
+        assign_similarity_sets(&mut group, &thumbnail_hashes);
+
+        assert_eq!(group.files[0].similar_set_id, Some(1));
+        assert_eq!(group.files[1].similar_set_id, Some(1));
+        assert_eq!(group.files[2].similar_set_id, Some(2));
+        assert_eq!(group.files[3].similar_set_id, Some(2));
+        assert_eq!(group.files[4].similar_set_id, None);
+    }
+
+    #[test]
+    fn test_thumbnail_failure_keeps_file_and_requests_each_file_once() {
+        let mut group = test_group(&["first", "second", "missing"]);
+        let bitmap = test_bitmap(0);
+        let mut requested = Vec::new();
+
+        analyze_similarity_group_with_provider(&mut group, |path| {
+            requested.push(path.to_string());
+            if path == "missing" {
+                Err("thumbnail unavailable".to_string())
+            } else {
+                Ok(bitmap.clone())
+            }
+        });
+
+        assert_eq!(requested, vec!["first", "second", "missing"]);
+        assert_eq!(group.files.len(), 3);
+        assert_eq!(group.files[0].similarity_status, SimilarityStatus::Similar);
+        assert_eq!(group.files[1].similarity_status, SimilarityStatus::Similar);
+        assert_eq!(
+            group.files[2].similarity_status,
+            SimilarityStatus::Unavailable
+        );
+    }
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    #[ignore = "requires the Windows thumbnail provider"]
+    fn test_windows_thumbnail_similarity_smoke() {
+        let source = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .unwrap()
+            .join("app-icon.png");
+        assert!(
+            source.exists(),
+            "test source image must exist: {}",
+            source.display()
+        );
+
+        let test_dir = std::env::temp_dir().join(format!(
+            "file-duplicate-organizer-thumbnail-test-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&test_dir);
+        fs::create_dir_all(&test_dir).unwrap();
+        let first = test_dir.join("first.png");
+        let second = test_dir.join("second.png");
+        fs::copy(&source, &first).unwrap();
+        fs::copy(&source, &second).unwrap();
+
+        let groups =
+            scan_for_duplicates(&test_dir.to_string_lossy(), "size_only", false, 0, true).unwrap();
+
+        let _ = fs::remove_dir_all(&test_dir);
+
+        assert_eq!(groups.len(), 1);
+        assert_eq!(groups[0].files.len(), 2);
+        assert_eq!(
+            groups[0].files[0].similarity_status,
+            SimilarityStatus::Similar
+        );
+        assert_eq!(
+            groups[0].files[1].similarity_status,
+            SimilarityStatus::Similar
+        );
+        assert_eq!(groups[0].files[0].similar_set_id, Some(1));
+        assert_eq!(groups[0].files[1].similar_set_id, Some(1));
+    }
+
     #[test]
     fn test_duplicate_detection() {
         // テスト用のディレクトリを作成
@@ -553,7 +1093,7 @@ mod tests {
         f5.write_all(b"Size identical, but...B").unwrap(); // 23 bytes
 
         // スキャン実行 (strict mode, recursive false)
-        let groups = scan_for_duplicates(test_dir, "strict", false, 0).unwrap();
+        let groups = scan_for_duplicates(test_dir, "strict", false, 0, false).unwrap();
 
         // クリーンアップ
         let _ = fs::remove_dir_all(test_dir);
@@ -619,7 +1159,7 @@ mod tests {
             .write_all(&vec![b'c'; 3_000])
             .unwrap();
 
-        let groups = scan_for_duplicates(test_dir, "size_only", false, 1_024).unwrap();
+        let groups = scan_for_duplicates(test_dir, "size_only", false, 1_024, false).unwrap();
 
         let _ = fs::remove_dir_all(test_dir);
 

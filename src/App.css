@@ -127,6 +127,17 @@ body {
   border-color: var(--accent);
 }
 
+.similarity-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  white-space: nowrap;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
 /* ===== Buttons ===== */
 .btn {
   padding: 8px 18px;
@@ -305,7 +316,16 @@ body {
   min-width: 0;
 }
 
+.file-name-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
 .file-name {
+  flex: 1;
+  min-width: 0;
   font-size: 13px;
   font-weight: 500;
   overflow: hidden;
@@ -320,6 +340,73 @@ body {
   text-overflow: ellipsis;
   white-space: nowrap;
   margin-top: 2px;
+}
+
+.similarity-badge {
+  flex-shrink: 0;
+  padding: 2px 6px;
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.2;
+  color: #fff;
+}
+
+.similarity-unavailable {
+  background: #62627a;
+  color: #e4e4ef;
+}
+
+.file-item.similarity-set-0 {
+  box-shadow: inset 4px 0 #7c5bf5;
+}
+
+.file-item.similarity-set-1 {
+  box-shadow: inset 4px 0 #2bb3a3;
+}
+
+.file-item.similarity-set-2 {
+  box-shadow: inset 4px 0 #ef9b3d;
+}
+
+.file-item.similarity-set-3 {
+  box-shadow: inset 4px 0 #e7659c;
+}
+
+.file-item.similarity-set-4 {
+  box-shadow: inset 4px 0 #5b9bea;
+}
+
+.file-item.similarity-set-5 {
+  box-shadow: inset 4px 0 #a871d8;
+}
+
+.file-item.similarity-unavailable-row {
+  box-shadow: inset 4px 0 #62627a;
+}
+
+.similarity-color-0 {
+  background: #7c5bf5;
+}
+
+.similarity-color-1 {
+  background: #2bb3a3;
+}
+
+.similarity-color-2 {
+  background: #ef9b3d;
+}
+
+.similarity-color-3 {
+  background: #e7659c;
+}
+
+.similarity-color-4 {
+  background: #5b9bea;
+}
+
+.similarity-color-5 {
+  background: #a871d8;
 }
 
 .file-size-tag {

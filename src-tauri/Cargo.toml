@@ -1,6 +1,6 @@
 [package]
 name = "file-duplicate-organizer"
-version = "0.2.3"
+version = "0.2.4"
 description = "A Tauri App"
 authors = ["Nekochan-02"]
 edition = "2021"
@@ -38,4 +38,3 @@ features = [
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-updater = "2"
-

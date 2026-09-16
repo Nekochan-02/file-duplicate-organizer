@@ -7,12 +7,20 @@ import { getVersion } from "@tauri-apps/api/app";
 import "./App.css";
 
 // Rust側の型定義
+type SimilarityStatus =
+  | "not_requested"
+  | "not_similar"
+  | "similar"
+  | "unavailable";
+
 interface FileInfo {
   path: string;
   name: string;
   size: number;
   hash: string | null;
   extension: string;
+  similar_set_id: number | null;
+  similarity_status: SimilarityStatus;
 }
 
 interface DuplicateGroup {
@@ -40,6 +48,7 @@ interface ScanSettings {
   mode: "strict" | "size_only";
   recursive: boolean;
   sizeToleranceBytes: number;
+  highlightSimilarThumbnails: boolean;
 }
 
 const MAX_SIZE_TOLERANCE_KIB = 1024;
@@ -65,16 +74,20 @@ function App() {
   const [scanMode, setScanMode] = useState<"strict" | "size_only">("strict");
   const [recursive, setRecursive] = useState(false);
   const [sizeToleranceKiB, setSizeToleranceKiB] = useState(DEFAULT_SIZE_TOLERANCE_KIB);
+  const [highlightSimilarThumbnails, setHighlightSimilarThumbnails] = useState(false);
   const [lastScanSettings, setLastScanSettings] = useState<ScanSettings | null>(null);
 
   const sizeToleranceBytes = Math.round(sizeToleranceKiB * 1024);
   const effectiveSizeToleranceBytes = scanMode === "size_only" ? sizeToleranceBytes : 0;
+  const effectiveHighlightSimilarThumbnails =
+    scanMode === "size_only" && highlightSimilarThumbnails;
   const scanSettingsDirty =
     scanComplete &&
     lastScanSettings !== null &&
     (lastScanSettings.mode !== scanMode ||
       lastScanSettings.recursive !== recursive ||
-      lastScanSettings.sizeToleranceBytes !== effectiveSizeToleranceBytes);
+      lastScanSettings.sizeToleranceBytes !== effectiveSizeToleranceBytes ||
+      lastScanSettings.highlightSimilarThumbnails !== effectiveHighlightSimilarThumbnails);
 
   const clearSelectionAfterScanSettingChange = () => {
     setSelectedFiles(new Set());
@@ -158,6 +171,11 @@ function App() {
     clearSelectionAfterScanSettingChange();
   };
 
+  const changeHighlightSimilarThumbnails = (value: boolean) => {
+    setHighlightSimilarThumbnails(value);
+    clearSelectionAfterScanSettingChange();
+  };
+
   // スキャン実行
   const startScan = async () => {
     if (!folderPath) return;
@@ -165,6 +183,7 @@ function App() {
       mode: scanMode,
       recursive,
       sizeToleranceBytes: effectiveSizeToleranceBytes,
+      highlightSimilarThumbnails: effectiveHighlightSimilarThumbnails,
     };
     setIsScanning(true);
     setScanComplete(false);
@@ -177,6 +196,7 @@ function App() {
         mode: settingsAtStart.mode,
         recursive: settingsAtStart.recursive,
         sizeToleranceBytes: settingsAtStart.sizeToleranceBytes,
+        highlightSimilarThumbnails: settingsAtStart.highlightSimilarThumbnails,
       });
       setGroups(result);
       setLastScanSettings(settingsAtStart);
@@ -269,12 +289,38 @@ function App() {
 
       // 削除済みファイルをリストから除去
       const deletedSet = new Set(result.deleted);
-      const updatedGroups = groups
+      const groupsAfterRemoval = groups
         .map((g) => ({
           ...g,
           files: g.files.filter((f) => !deletedSet.has(f.path)),
         }))
         .filter((g) => g.files.length >= 2);
+      const updatedGroups = groupsAfterRemoval.map((group) => {
+        const setCounts = new Map<number, number>();
+        group.files.forEach((file) => {
+          if (file.similarity_status === "similar" && file.similar_set_id !== null) {
+            setCounts.set(file.similar_set_id, (setCounts.get(file.similar_set_id) ?? 0) + 1);
+          }
+        });
+
+        return {
+          ...group,
+          files: group.files.map((file) => {
+            if (
+              file.similarity_status === "similar" &&
+              file.similar_set_id !== null &&
+              (setCounts.get(file.similar_set_id) ?? 0) < 2
+            ) {
+              return {
+                ...file,
+                similar_set_id: null,
+                similarity_status: "not_similar" as const,
+              };
+            }
+            return file;
+          }),
+        };
+      });
       setGroups(updatedGroups);
       setSelectedFiles(new Set());
       setPreview(null);
@@ -342,20 +388,34 @@ function App() {
           </select>
 
           {scanMode === "size_only" && (
-            <label className="size-tolerance-control" title="2ファイル間で許容する最大サイズ差">
-              許容差
-              <input
-                type="number"
-                min="0"
-                max={MAX_SIZE_TOLERANCE_KIB}
-                step="0.1"
-                value={sizeToleranceKiB}
-                onChange={(e) => changeSizeToleranceKiB(e.target.valueAsNumber)}
-                disabled={isScanning}
-                aria-label="サイズ許容差（KiB）"
-              />
-              KiB
-            </label>
+            <>
+              <label className="size-tolerance-control" title="2ファイル間で許容する最大サイズ差">
+                許容差
+                <input
+                  type="number"
+                  min="0"
+                  max={MAX_SIZE_TOLERANCE_KIB}
+                  step="0.1"
+                  value={sizeToleranceKiB}
+                  onChange={(e) => changeSizeToleranceKiB(e.target.valueAsNumber)}
+                  disabled={isScanning}
+                  aria-label="サイズ許容差（KiB）"
+                />
+                KiB
+              </label>
+              <label
+                className="similarity-option"
+                title="同じサイズ候補グループ内だけで実サムネイルを比較します"
+              >
+                <input
+                  type="checkbox"
+                  checked={highlightSimilarThumbnails}
+                  onChange={(e) => changeHighlightSimilarThumbnails(e.target.checked)}
+                  disabled={isScanning}
+                />
+                類似サムネイルを強調
+              </label>
+            </>
           )}
 
           <label style={{ display: "flex", alignItems: "center", gap: "5px", cursor: "pointer", fontSize: "14px", flexShrink: 0, paddingRight: "8px" }}>
@@ -450,7 +510,11 @@ function App() {
               {group.files.map((file) => (
                 <div
                   key={file.path}
-                  className={`file-item ${selectedFiles.has(file.path) ? "selected" : ""}`}
+                  className={`file-item ${selectedFiles.has(file.path) ? "selected" : ""} ${
+                    file.similarity_status === "similar" && file.similar_set_id !== null
+                      ? `similarity-set-${(file.similar_set_id - 1) % 6}`
+                      : ""
+                  } ${file.similarity_status === "unavailable" ? "similarity-unavailable-row" : ""}`}
                   onClick={() => loadPreview(file.path)}
                 >
                   <input
@@ -464,7 +528,22 @@ function App() {
                     onClick={(e) => e.stopPropagation()}
                   />
                   <div className="file-info">
-                    <div className="file-name">{file.name}</div>
+                    <div className="file-name-row">
+                      <div className="file-name">{file.name}</div>
+                      {file.similarity_status === "similar" && file.similar_set_id !== null && (
+                        <span
+                          className={`similarity-badge similarity-color-${(file.similar_set_id - 1) % 6}`}
+                          aria-label={`類似セット ${file.similar_set_id}`}
+                        >
+                          類似 {file.similar_set_id}
+                        </span>
+                      )}
+                      {file.similarity_status === "unavailable" && (
+                        <span className="similarity-badge similarity-unavailable">
+                          判定不可
+                        </span>
+                      )}
+                    </div>
                     <div className="file-path">{file.path}</div>
                   </div>
                   <span className="file-size-tag">{formatSize(file.size)}</span>
