@@ -176,7 +176,7 @@ function App() {
         path: folderPath,
         mode: settingsAtStart.mode,
         recursive: settingsAtStart.recursive,
-        size_tolerance_bytes: settingsAtStart.sizeToleranceBytes,
+        sizeToleranceBytes: settingsAtStart.sizeToleranceBytes,
       });
       setGroups(result);
       setLastScanSettings(settingsAtStart);
